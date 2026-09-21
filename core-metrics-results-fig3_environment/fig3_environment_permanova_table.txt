@@ -1,0 +1,25 @@
+Permanova tables
+unweighted_unifrac
+Df	SumOfSqs	R2	F	Pr(>F)
+treatment	2	6.1	0.2	39.84	0
+time_fac	2	2.47	0.08	16.1	0
+sex	1	0.09	0	1.13	0.25
+treatment:time_fac	4	5.01	0.16	16.38	0
+Residual	223	17.07	0.56	NA	NA
+Total	232	30.74	1	NA	NA
+weighted_unifrac
+Df	SumOfSqs	R2	F	Pr(>F)
+treatment	2	4.21	0.38	102.38	0
+time_fac	2	0.62	0.06	15	0
+sex	1	0.1	0.01	4.85	0
+treatment:time_fac	4	1.48	0.13	17.93	0
+Residual	223	4.59	0.42	NA	NA
+Total	232	10.99	1	NA	NA
+bray_curtis
+Df	SumOfSqs	R2	F	Pr(>F)
+treatment	2	14.63	0.2	45.05	0
+time_fac	2	7.2	0.1	22.17	0
+sex	1	0.33	0	2.04	0.03
+treatment:time_fac	4	13.45	0.19	20.71	0
+Residual	223	36.21	0.5	NA	NA
+Total	232	71.82	1	NA	NA
