@@ -1,0 +1,2685 @@
+---
+title: "Seasonal Microbiomes"
+output: html_document
+---
+
+# Get started
+```{r get started}
+
+rm(list=ls())
+#library(lme4)
+library(multcomp)
+library(dunn.test)
+library(rcompanion)
+library(tidyr)
+library(ggplot2)
+library(gridExtra)
+#library(reshape)
+#library(ade4)
+library(grid)
+#library(gtable)
+#library(PMCMR)
+#library(multcompView)
+#library(splitstackshape)
+library(readxl)
+library(reshape2)
+#library(survival)
+#library(maps)
+#library(ancom.R)
+#library(plyr)
+library(dplyr)
+library(vegan)
+library(cowplot)
+library(flextable)
+library(officer)
+library(docxtractr)
+library(decontam)
+library(phyloseq)
+#library(ggplot2)
+library(rhdf5)
+library(qiime2R)
+library(seqinr)
+library(stringr)
+
+
+
+
+#source(file = '/Users/jmc257/Dropbox/sequencing/16sscripts/make_taxon_plots_condense_2var_0.0.2.R')
+source(file = '~/Dropbox/sequencing/16sscripts/ancom_tests.R')
+#source(file = '/Users/jmc257/Dropbox/sequencing/16sscripts/pcoa_2var_0.0.2.R')
+source(file = '~/Dropbox/sequencing/16sscripts/g_legend.R')
+source(file = '~/Dropbox/sequencing/16sscripts/FrederickHuangLin-ANCOM-c3d6f98/scripts/ancom_v2.0.R')
+source(file = '~/Dropbox/sequencing/16sscripts/pcoa_0.0.3.R')
+source(file = '~/Dropbox/sequencing/16sscripts/make_taxon_plot_0.0.3.R')
+source(file = '~/Dropbox/sequencing/16sscripts/calculate_correlations.R')
+source(file = '~/Dropbox/sequencing/16sscripts/make_distance_plot_0.0.3.R')
+source(file = "https://raw.githubusercontent.com/johnchaston/Gale2024/main/make_permanova_tables.R")
+
+source(file = "https://raw.githubusercontent.com/johnchaston/Gale2024/main/ancom_tests.R")
+source(file = "https://raw.githubusercontent.com/johnchaston/Gale2024/main/g_legend.R")
+source(file = '~/Dropbox/sequencing/16sscripts/FrederickHuangLin-ANCOM-c3d6f98/scripts/ancom_v2.0.R') ## NOTE USER must get ANCOM from independent access to run ANCOM scripts
+#source(file = "https://raw.githubusercontent.com/johnchaston/Gale2024/main/pcoa_0.0.3.R")
+source(file = "https://raw.githubusercontent.com/johnchaston/Gale2024/main/make_taxon_plot_0.0.5.R")
+source(file = "https://raw.githubusercontent.com/johnchaston/Gale2024/main/calculate_correlations.R")
+source(file = "https://raw.githubusercontent.com/johnchaston/Gale2024/main/make_permanova_tables.R")
+source(file = "https://raw.githubusercontent.com/johnchaston/Gale2024/main/96_well_scripts.R")
+source(file = "https://raw.githubusercontent.com/johnchaston/Gale2024/main/Gale_functions.R")
+source(file = "https://raw.githubusercontent.com/johnchaston/Gale2024/main/other_taxonomy_files_0.0.1.R")
+source(file = "https://raw.githubusercontent.com/johnchaston/Gale2024/main/make_distance_plot_0.0.3.R")
+source(file = "https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/modified_on_the_go_functions.R")
+
+# if (!requireNamespace("devtools", quietly = TRUE)) {
+#   install.packages("devtools")
+# }
+#devtools::install_github("jbisanz/qiime2R")
+
+make_taxon_plot_matrix <- function(file_path) {
+  otumat = read.table(paste0('core-metrics-results-',filepath,'/rarefied_table.txt'), comment.char = "", header=T, fill=T, sep = "\t", skip = 1)
+  rownames(otumat) <- otumat$X.OTU.ID
+  otumat <- otumat %>% dplyr::select(-X.OTU.ID)
+  otumat <- as.matrix(otumat)
+  otumat
+}
+
+make_taxonomy_forR <- function(taxon_file_path) {
+  taxa_table <- read.table(paste0(taxon_file_path,"/taxonomy.tsv"), sep = "\t", header = T) %>% 
+    tidyr::separate(col = Taxon, into = c("kingdom","phylum","class","order","family","genus","species"), remove = T, sep = ";") %>%
+    dplyr::select(-Confidence)
+  write.csv(taxa_table, file = paste0(taxon_file_path,"/taxonomy_forR.csv"), quote = F, sep = ",", row.names = F)
+    }
+
+```
+
+# Download files
+```{bash, eval = F}
+pwd
+mkdir Seasonal
+cd Seasonal
+
+wget -O betadispandrare.sh https://raw.githubusercontent.com/johnchaston/DrosRepoopulation/main/betadispandrare.sh
+wget -O betarare.sh https://raw.githubusercontent.com/johnchaston/DrosRepoopulation/main/betarare.sh
+wget -O rarefied_table-2014677_noWR.txt https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/rarefied_table-2014677_noWR.txt
+wget -O metadata_mergedrun_removed.txt https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/metadata_mergedrun_removed.txt
+wget -O amber_mapper_7.tsv https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/amber_mapper_7.tsv
+wget -O pairwisefst_2017_matrix_anova_JMC.csv https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/pairwisefst_2017_matrix_anova_JMC.csv
+wget -O pairwisefst_2016_matrix_anova_JMC.csv https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/pairwisefst_2016_matrix_anova_JMC.csv
+wget -O pairwisefst_2014_matrix_anova_JMC.csv https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/pairwisefst_2014_matrix_anova_JMC.csv
+
+mkdir rep-seqs-2014677
+mkdir rooted-tree-2014677
+mkdir taxonomy-2014677
+wget -O taxonomy-2014677/taxonomy_forR.csv https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/taxonomy-2014677/taxonomy_forR.csv
+wget -O rooted-tree-2014677/tree.nwk https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/rooted-tree-2014677/tree.nwk
+wget -O rep-seqs-2014677/dna-sequences.fasta https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/rep-seqs-2014677/dna-sequences.fasta
+mkdir taxonomy-linvilla
+wget -O taxonomy-linvilla/taxonomy_forR.csv https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/taxonomy-linvilla/taxonomy_forR.csv
+
+for i in "fig1_decontam" "fig1_decontam_AAB" "fig1_decontam_Ent" "fig1_decontam_LAB750" "fig1_decontam_LAB40" "fig2_genotype" "fig3_environment" "fig4_2014EFt1" "fig4_2014EFt2" "fig4_2014EFt3" "fig4_2017eft1" "fig4_2017eft3" "fig4_2017ebft1" "fig4_2017ebft3" "fig4_2016SFt1" "fig4_2016SFt2" "fig4_2016SFt3"
+do
+  mkdir core-metrics-results-$i
+done
+
+
+for i in "fig1_decontam" "fig1_decontam_AAB" "fig1_decontam_Ent" "fig1_decontam_LAB750" "fig1_decontam_LAB40" "fig2_genotype" "fig3_environment" "fig4_2014EFt1" "fig4_2014EFt2" "fig4_2014EFt3" "fig4_2017eft1" "fig4_2017eft3" "fig4_2017ebft1" "fig4_2017ebft3" "fig4_2016SFt1" "fig4_2016SFt2" "fig4_2016SFt3"
+do
+  mkdir core-metrics-results-$i/unweighted_unifrac_pcoa_results/
+    wget -O core-metrics-results-$i/unweighted_unifrac_pcoa_results/ordination.txt https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/core-metrics-results-$i/unweighted_unifrac_pcoa_results/ordination.txt
+  mkdir core-metrics-results-$i/weighted_unifrac_pcoa_results/
+    wget -O core-metrics-results-$i/weighted_unifrac_pcoa_results/ordination.txt https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/core-metrics-results-$i/weighted_unifrac_pcoa_results/ordination.txt
+done
+
+
+for i in "fig1_decontam" "fig1_decontam_AAB" "fig1_decontam_Ent" "fig1_decontam_LAB750" "fig1_decontam_LAB40" "fig2_genotype" "fig3_environment" "fig4_2014EFt1" "fig4_2014EFt2" "fig4_2014EFt3" "fig4_2017eft1" "fig4_2017eft3" "fig4_2017ebft1" "fig4_2017ebft3" "fig4_2016SFt1" "fig4_2016SFt2" "fig4_2016SFt3"
+do
+  mkdir core-metrics-results-$i/bray_curtis_pcoa_results/
+    wget -O core-metrics-results-$i/bray_curtis_pcoa_results/ordination.txt https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/core-metrics-results-$i/bray_curtis_pcoa_results/ordination.txt
+done
+
+for i in "fig1_decontam" "fig1_decontam_AAB" "fig1_decontam_Ent" "fig1_decontam_LAB750" "fig1_decontam_LAB40" "fig2_genotype" "fig3_environment" "fig4_2014EFt1" "fig4_2014EFt2" "fig4_2014EFt3" "fig4_2017eft1" "fig4_2017eft3" "fig4_2017ebft1" "fig4_2017ebft3" "fig4_2016SFt1" "fig4_2016SFt2" "fig4_2016SFt3"
+do
+  mkdir core-metrics-results-$i/weighted_unifrac_distance_matrix/
+    wget -O core-metrics-results-$i/weighted_unifrac_distance_matrix/distance-matrix.tsv https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/core-metrics-results-$i/weighted_unifrac_distance_matrix/distance-matrix.tsv
+  mkdir core-metrics-results-$i/unweighted_unifrac_distance_matrix/
+    wget -O core-metrics-results-$i/unweighted_unifrac_distance_matrix/distance-matrix.tsv https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/core-metrics-results-$i/unweighted_unifrac_distance_matrix/distance-matrix.tsv
+ done  
+
+    
+for i in "fig1_decontam" "fig1_decontam_AAB" "fig1_decontam_Ent" "fig1_decontam_LAB750" "fig1_decontam_LAB40" "fig2_genotype" "fig3_environment" "fig4_2014EFt1" "fig4_2014EFt2" "fig4_2014EFt3" "fig4_2017eft1" "fig4_2017eft3" "fig4_2017ebft1" "fig4_2017ebft3" "fig4_2016SFt1" "fig4_2016SFt2" "fig4_2016SFt3"
+do    
+  mkdir core-metrics-results-$i/bray_curtis_distance_matrix/
+    wget -O core-metrics-results-$i/bray_curtis_distance_matrix/distance-matrix.tsv https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/core-metrics-results-$i/bray_curtis_distance_matrix/distance-matrix.tsv
+    wget -O core-metrics-results-$i/rarefied_table.txt https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/core-metrics-results-$i/rarefied_table.txt
+done
+
+
+for i in "linvilla"
+do
+  mkdir core-metrics-results-$i
+ mkdir core-metrics-results-$i/unweighted_unifrac_pcoa_results/
+    wget -O core-metrics-results-$i/unweighted_unifrac_pcoa_results/ordination.txt https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/core-metrics-results-$i/unweighted_unifrac_pcoa_results/ordination.txt
+  mkdir core-metrics-results-$i/weighted_unifrac_pcoa_results/
+    wget -O core-metrics-results-$i/weighted_unifrac_pcoa_results/ordination.txt https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/core-metrics-results-$i/weighted_unifrac_pcoa_results/ordination.txt
+  mkdir core-metrics-results-$i/bray_curtis_pcoa_results/
+    wget -O core-metrics-results-$i/bray_curtis_pcoa_results/ordination.txt https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/core-metrics-results-$i/bray_curtis_pcoa_results/ordination.txt
+done
+
+for i in "linvilla"
+do
+ mkdir core-metrics-results-$i/weighted_unifrac_distance_matrix/
+    wget -O core-metrics-results-$i/weighted_unifrac_distance_matrix/distance-matrix.tsv https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/core-metrics-results-$i/weighted_unifrac_distance_matrix/distance-matrix.tsv
+  mkdir core-metrics-results-$i/unweighted_unifrac_distance_matrix/
+    wget -O core-metrics-results-$i/unweighted_unifrac_distance_matrix/distance-matrix.tsv https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/core-metrics-results-$i/unweighted_unifrac_distance_matrix/distance-matrix.tsv
+ done
+
+for i in "linvilla"
+do
+  mkdir core-metrics-results-$i/bray_curtis_distance_matrix/
+    wget -O core-metrics-results-$i/bray_curtis_distance_matrix/distance-matrix.tsv https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/core-metrics-results-$i/bray_curtis_distance_matrix/distance-matrix.tsv
+    wget -O core-metrics-results-$i/rarefied_table.txt https://raw.githubusercontent.com/johnchaston/SeasonalMicrobiomes/refs/heads/main/core-metrics-results-$i/rarefied_table.txt
+done
+```
+
+
+
+## decontam
+```{bash, eval = F}
+
+name=2014677
+mapper=metadata_mergedrun_removed.txt
+
+	## import the sequences
+qiime tools import \
+	--type 'SampleData[PairedEndSequencesWithQuality]' \
+	--input-path Fastq \
+	--input-format 'CasavaOneEightSingleLanePerSampleDirFmt' \
+	--output-path demux-paired-end-$name"".qza
+
+qiime demux summarize \
+  --i-data demux-paired-end-$name"".qza \
+  --o-visualization demux-$name"".qzv
+  
+qiime dada2 denoise-paired \
+  --i-demultiplexed-seqs demux-paired-end-$name"".qza \
+  --p-trim-left-f 6 \
+  --p-trim-left-r 6 \
+  --p-trunc-len-f 248 \
+  --p-trunc-len-r 219 \
+  --o-table table-$name"".qza \
+  --o-representative-sequences rep-seqs-$name"".qza \
+  --o-denoising-stats denoising-stats-$name"".qza
+
+qiime feature-table summarize \
+--i-table table-$name"".qza \
+--o-visualization table-$name"".qzv \
+--m-sample-metadata-file $mapper
+
+qiime tools export \
+--input-path table-$name"".qza \
+--output-path table-$name""
+
+biom convert -i table-$name""/feature-table.biom -o rarefied_table-$name"".txt --to-tsv
+
+qiime feature-classifier classify-sklearn \
+  --i-classifier ~/Dropbox/sequencing/2020-07-GeraldWolbExp/labchastonsilva-138-99-nb-classifier.qza \
+  --i-reads rep-seqs-$name"".qza \
+  --o-classification taxonomy-$name"".qza
+
+qiime metadata tabulate \
+  --m-input-file taxonomy-$name"".qza \
+  --o-visualization taxonomy-$name"".qzv
+
+qiime tools export \
+--input-path taxonomy-$name"".qza \
+--output-path taxonomy-$name""
+
+qiime taxa filter-table \
+--i-table table-$name"".qza \
+--i-taxonomy taxonomy-$name"".qza \
+--p-exclude Archaea,Chloroplast,Mitochondria,Wolbachia,Rickettsia \
+--o-filtered-table table-$name""_noWR.qza
+
+qiime feature-table summarize \
+--i-table table-$name""_noWR.qza \
+--o-visualization table-$name""_noWR.qzv \
+--m-sample-metadata-file $mapper
+
+qiime tools export \
+--input-path table-$name""_noWR.qza \
+--output-path table-$name""_noWR
+
+biom convert -i table-$name""_noWR/feature-table.biom -o table-$name""_noWR.txt --to-tsv
+
+
+abc <- read.table('table-2014677_noWR.txt', comment.char = "", fill = T, sep = "\t")
+abcA <- abc %>% filter(!V1%in%c("f46244fc6e4f7641b44324411a023a3e","c5ea0301c20417c4702c804fbd40bd00","f05bb57a8505db89349323f306ca7042","28beeda2b73cef057a0ba673151a3ba7","72ad3532d7af68d0a8118bf7140984d0","2f7c7c5f870fc8a9ade40842f72d5f43","bb6d97a9bcc97e39f567ba6ce41c2406","8fbaf4a52e929d41f92cbf93bf2f57e9","14cd2c58454095cfa7ae99a372986843","73038e20c897de04bfa9a236d5bccba9","92990ff0b8f59b266ab39f2df2995a49","d8b471637f8e8616fe3d6ceeb0a1700a","def777f061c475530d8d6cec508ca18b","4a5a5bbc4451f636dbcb9ebd3d304a1f","4d752351fe06081312bb785e73b2ce7d","000877bb7362b5b22484858dfaf3bca3","02188a7bee42cf8400ced52ca6ea6050","cd238685c00e38ed70fca666591b222c","6e997da62564630428f7acd945e41e69","1f16accbe3bc6a3202a37d89d6ae6a20","c5f5a21e936aa145ec5facf8d3084795","d326e04be704aa50b527b212000b56d1","31085715a93b1d9bc009a1105f51c6d5","b0b9ad43833642ba8107c8f281a0545e","3a87525185ac7b97666a86d615e6814d","f2092fc1996a632abb4271de44f67eb3","698a8679188c46c8a0e5bb1679611a16","88ba6369d41ec9c89bbd9f735da0da4f","caab7dcc7c8fb298f39aff65ec124ae2","da08e27d1c2504290ae8c73b70d83970","d0fee61f7a5f5fddb96726100a392356","68250a1fd2800d0b06281d7a002b8425","20c529baaf210252e84df64cf00c1fed","c0e1c7145c6e0ec94fd57ead3a464cd3","24c0b05380f5d93fb14fed74a1bdca0d","b7307f0356a2f4502d7c7d3b1b66100a","c613f45fc7e232add449137cb19f106c","f180e4494a83cc6f0937d810c97ccbce","da82f94cee40c7b1bf00c56307138c1d"))
+dim(abc)-dim(abcA)
+length(c("f46244fc6e4f7641b44324411a023a3e","c5ea0301c20417c4702c804fbd40bd00","f05bb57a8505db89349323f306ca7042","28beeda2b73cef057a0ba673151a3ba7","72ad3532d7af68d0a8118bf7140984d0","2f7c7c5f870fc8a9ade40842f72d5f43","bb6d97a9bcc97e39f567ba6ce41c2406","8fbaf4a52e929d41f92cbf93bf2f57e9","14cd2c58454095cfa7ae99a372986843","73038e20c897de04bfa9a236d5bccba9","92990ff0b8f59b266ab39f2df2995a49","d8b471637f8e8616fe3d6ceeb0a1700a","def777f061c475530d8d6cec508ca18b","4a5a5bbc4451f636dbcb9ebd3d304a1f","4d752351fe06081312bb785e73b2ce7d","000877bb7362b5b22484858dfaf3bca3","02188a7bee42cf8400ced52ca6ea6050","cd238685c00e38ed70fca666591b222c","6e997da62564630428f7acd945e41e69","1f16accbe3bc6a3202a37d89d6ae6a20","c5f5a21e936aa145ec5facf8d3084795","d326e04be704aa50b527b212000b56d1","31085715a93b1d9bc009a1105f51c6d5","b0b9ad43833642ba8107c8f281a0545e","3a87525185ac7b97666a86d615e6814d","f2092fc1996a632abb4271de44f67eb3","698a8679188c46c8a0e5bb1679611a16","88ba6369d41ec9c89bbd9f735da0da4f","caab7dcc7c8fb298f39aff65ec124ae2","da08e27d1c2504290ae8c73b70d83970","d0fee61f7a5f5fddb96726100a392356","68250a1fd2800d0b06281d7a002b8425","20c529baaf210252e84df64cf00c1fed","c0e1c7145c6e0ec94fd57ead3a464cd3","24c0b05380f5d93fb14fed74a1bdca0d","b7307f0356a2f4502d7c7d3b1b66100a","c613f45fc7e232add449137cb19f106c","f180e4494a83cc6f0937d810c97ccbce","da82f94cee40c7b1bf00c56307138c1d"))
+
+write.table(abcA, "table-2014677_noWRdecontam.txt", row.names=F, quote = F, sep = "\t", col.names = F)
+
+biom convert -i table-2014677_noWRdecontam.txt -o table-2014677_noWRdecontam/feature-table.biom --to-hdf5 --table-type="OTU table"
+qiime tools import --input-path table-2014677_noWRdecontam/feature-table.biom --type 'FeatureTable[Frequency]' --input-format BIOMV210Format --output-path table-2014677_noWRdecontam.qza
+
+qiime feature-table summarize \
+--i-table table-$name""_noWRdecontam.qza \
+--o-visualization table-$name""_noWRdecontam.qzv \
+--m-sample-metadata-file $mapper
+
+## make a tree
+qiime phylogeny align-to-tree-mafft-fasttree \
+  --i-sequences rep-seqs-$name"".qza \
+  --o-alignment aligned-rep-seqs-$name"".qza \
+  --o-masked-alignment masked-aligned-rep-seqs-$name"".qza \
+  --o-tree unrooted-tree-$name"".qza \
+  --o-rooted-tree rooted-tree-$name"".qza
+  
+qiime tools export \
+--input-path rep-seqs-$name"".qza \
+--output-path rep-seqs-$name""
+
+qiime tools export \
+--input-path rooted-tree-$name"".qza \
+--output-path rooted-tree-$name""
+
+
+```
+
+## decontam package
+```{r, eval = F}
+library(phyloseq)
+## otu table
+otumat = read.table('rarefied_table-2014677_noWR.txt', comment.char = "", header=T, fill=T, sep = "\t", skip = 1)
+rownames(otumat) <- otumat$X.OTU.ID
+otumat <- otumat %>% dplyr::select(-X.OTU.ID)
+otumat <- as.matrix(otumat)
+otumat
+
+
+
+## taxonomy table
+taxmat = read.csv('taxonomy-2014677/taxonomy_forR.csv')
+rownames(taxmat) <- taxmat$Feature.ID
+taxmat <- taxmat %>% dplyr::select(-Feature.ID)
+taxmat <- as.matrix(taxmat)
+colnames(taxmat) <- c("Domain","Phylum","Class","Order","Family","Genus","Species")
+taxmat
+
+## mapper
+mapmat = read.table('metadata_mergedrun_removed.txt', comment.char = "", header=T, fill=T, sep = "\t")
+rownames(mapmat) <- str_replace_all(string = mapmat$X.SampleID, pattern = "-", replacement = ".")
+mapmat = mapmat %>% dplyr::select(-X.SampleID)
+
+
+
+
+## ref
+refmat = seqinr::read.fasta('rep-seqs-2014677/dna-sequences.fasta')
+head(refmat)
+OTU = otu_table(otumat, taxa_are_rows=T)
+TAX = tax_table(taxmat)
+MAP = sample_data(mapmat)
+TREE = ape::read.tree("rooted-tree-2014677/tree.nwk")
+
+str(OTU)
+str(MAP)
+str(TAX)
+
+rownames(TAX[TAX[,4] == " o__Acetobacterales",])
+rownames(TAX[TAX[,4] == " o__Lactobacillales",])
+rownames(TAX[TAX[,4] == " o__Enterobacterales",])
+
+dim(OTU)
+# Construct the master phyloseq object
+chaston_phyloseq <- phyloseq(OTU, TAX, MAP)
+
+## look at data
+head(sample_data(chaston_phyloseq))
+
+## 5 Inspect Library Sizes
+df <- as.data.frame(sample_data(chaston_phyloseq)) # Put sample_data into a ggplot-friendly data.frame
+df2 <- as.data.frame(sample_data(chaston_phyloseq)) # Put sample_data into a ggplot-friendly data.frame
+df$LibrarySize <- sample_sums(chaston_phyloseq)
+df <- df[order(df$LibrarySize),]
+df$Index <- seq(nrow(df))
+ggplot(data=df, aes(x=Index, y=LibrarySize, color=control)) + geom_point() + scale_color_manual(values = c("black","red"))
+
+# 6 Identify Contaminants - Frequency
+#The first contaminant identification method we’ll use is the “frequency” method. In this method, the distribution of the frequency of each sequence feature as a function of the input DNA concentration is used to identify contaminants.
+# In our phyloseq object, "quant_reading" is the sample variable that holds the concentration information:
+
+contamdf.freq.jmc <- isContaminant(chaston_phyloseq, method="frequency", conc="quantreading")
+head(contamdf.freq.jmc)
+table(contamdf.freq.jmc$contaminant)
+head(which(contamdf.freq.jmc$contaminant))
+
+
+# 
+# Now that we have identified likely contaminants, let’s remove them from the phyloseq object:
+# 
+# ps
+# ## phyloseq-class experiment-level object
+# ## otu_table()   OTU Table:         [ 1951 taxa and 569 samples ]
+# ## sample_data() Sample Data:       [ 569 samples by 6 sample variables ]
+# ## tax_table()   Taxonomy Table:    [ 1951 taxa by 6 taxonomic ranks ]
+# ps.noncontam <- prune_taxa(!contamdf.freq$contaminant, ps)
+# ps.noncontam
+# ## phyloseq-class experiment-level object
+# ## otu_table()   OTU Table:         [ 1893 taxa and 569 samples ]
+# ## sample_data() Sample Data:       [ 569 samples by 6 sample variables ]
+# ## tax_table()   Taxonomy Table:    [ 1893 taxa by 6 taxonomic ranks ]
+# And off we go with analysis of the contaminant-filtered data!
+# 
+# See the phyloseq web site for documentation of the many powerful analyses available through the phyloseq R package.
+
+#7 Identify Contaminants - Prevalence
+# In our phyloseq object, "Sample_or_Control" is the sample variable that holds the negative control information. We’ll summarize that data as a logical variable, with TRUE for control samples, as that is the form required by isContaminant.
+
+sample_data(chaston_phyloseq)$is.neg <- sample_data(chaston_phyloseq)$control == "control"
+#contamdf.prev <- isContaminant(chaston_phyloseq, method="prevalence", neg="is.neg", batch = sample_data(chaston_phyloseq)$seqrun)
+
+contamdf.prev <- isContaminant(seqtab = chaston_phyloseq, method="prevalence", neg="is.neg", batch = "seqrun", batch.combine = "minimum")
+
+
+table(contamdf.prev$contaminant)
+head(which(contamdf.prev$contaminant))
+abc <- contamdf.prev[which(contamdf.prev$contaminant),]
+
+#                                          freq prev p.freq       p.prev            p contaminant
+# f05bb57a8505db89349323f306ca7042 1.196075e-04    2     NA 3.530895e-02 3.530895e-02        TRUE
+# d0fee61f7a5f5fddb96726100a392356 9.508022e-05   42     NA 1.203664e-02 1.203664e-02        TRUE
+# f180e4494a83cc6f0937d810c97ccbce 5.959373e-04    5     NA 1.904309e-08 1.904309e-08        TRUE
+# f46244fc6e4f7641b44324411a023a3e 6.318771e-06    2     NA 1.067616e-02 1.067616e-02        TRUE
+# b7307f0356a2f4502d7c7d3b1b66100a 1.288590e-03  162     NA 7.471645e-05 7.471645e-05        TRUE
+# 14cd2c58454095cfa7ae99a372986843 1.936406e-02  272     NA 5.869631e-02 5.869631e-02        TRUE
+# 02188a7bee42cf8400ced52ca6ea6050 3.311191e-05    6     NA 2.135177e-02 2.135177e-02        TRUE
+# c5ea0301c20417c4702c804fbd40bd00 9.254132e-05    2     NA 3.530895e-02 3.530895e-02        TRUE
+# b0b9ad43833642ba8107c8f281a0545e 2.309398e-06    4     NA 7.787958e-05 7.787958e-05        TRUE
+# 31085715a93b1d9bc009a1105f51c6d5 5.114198e-06    5     NA 1.904309e-08 1.904309e-08        TRUE
+# 28beeda2b73cef057a0ba673151a3ba7 6.452619e-06    3     NA 3.530895e-02 3.530895e-02        TRUE
+# c613f45fc7e232add449137cb19f106c 8.509093e-04    6     NA 1.904309e-08 1.904309e-08        TRUE
+# 88ba6369d41ec9c89bbd9f735da0da4f 8.347121e-06    4     NA 7.054003e-02 7.054003e-02        TRUE
+# 20c529baaf210252e84df64cf00c1fed 7.861895e-04   26     NA 6.130997e-07 6.130997e-07        TRUE
+# c5f5a21e936aa145ec5facf8d3084795 5.240623e-06    5     NA 1.904309e-08 1.904309e-08        TRUE
+# 3a87525185ac7b97666a86d615e6814d 3.095053e-06    4     NA 6.260416e-07 6.260416e-07        TRUE
+# bb6d97a9bcc97e39f567ba6ce41c2406 4.284114e-05   15     NA 8.000899e-02 8.000899e-02        TRUE
+# 4d752351fe06081312bb785e73b2ce7d 1.183596e-02  614     NA 6.249761e-02 6.249761e-02        TRUE
+# 24c0b05380f5d93fb14fed74a1bdca0d 7.773064e-05    5     NA 7.054003e-02 7.054003e-02        TRUE
+# 4a5a5bbc4451f636dbcb9ebd3d304a1f 5.144352e-04   19     NA 9.290493e-05 9.290493e-05        TRUE
+# da08e27d1c2504290ae8c73b70d83970 1.656067e-05   13     NA 6.402687e-02 6.402687e-02        TRUE
+# 6e997da62564630428f7acd945e41e69 2.120467e-07    2     NA 3.530895e-02 3.530895e-02        TRUE
+# 2f7c7c5f870fc8a9ade40842f72d5f43 5.804375e-06    3     NA 1.601410e-02 1.601410e-02        TRUE
+# 698a8679188c46c8a0e5bb1679611a16 1.925141e-03  120     NA 7.688162e-03 7.688162e-03        TRUE
+# def777f061c475530d8d6cec508ca18b 8.353713e-05    5     NA 1.904309e-08 1.904309e-08        TRUE
+# d8b471637f8e8616fe3d6ceeb0a1700a 5.645810e-07    3     NA 5.294365e-02 5.294365e-02        TRUE
+# cd238685c00e38ed70fca666591b222c 1.002314e-05    7     NA 8.808076e-02 8.808076e-02        TRUE
+# 8fbaf4a52e929d41f92cbf93bf2f57e9 5.319112e-06    6     NA 5.820781e-03 5.820781e-03        TRUE
+# 73038e20c897de04bfa9a236d5bccba9 1.865228e-05    8     NA 1.194738e-02 1.194738e-02        TRUE
+# 000877bb7362b5b22484858dfaf3bca3 3.594533e-04   18     NA 9.290493e-05 9.290493e-05        TRUE
+# c0e1c7145c6e0ec94fd57ead3a464cd3 8.054025e-04   25     NA 6.792485e-04 6.792485e-04        TRUE
+# 92990ff0b8f59b266ab39f2df2995a49 1.503250e-04   14     NA 6.018572e-04 6.018572e-04        TRUE
+# da82f94cee40c7b1bf00c56307138c1d 3.167083e-05   12     NA 3.736176e-02 3.736176e-02        TRUE
+# caab7dcc7c8fb298f39aff65ec124ae2 1.688573e-05   16     NA 8.000899e-02 8.000899e-02        TRUE
+# d326e04be704aa50b527b212000b56d1 8.250742e-07    3     NA 5.294365e-02 5.294365e-02        TRUE
+# f2092fc1996a632abb4271de44f67eb3 1.661064e-05    6     NA 1.601410e-02 1.601410e-02        TRUE
+# 1f16accbe3bc6a3202a37d89d6ae6a20 5.521190e-06    5     NA 1.904309e-08 1.904309e-08        TRUE
+# 68250a1fd2800d0b06281d7a002b8425 1.857486e-05   15     NA 2.733271e-06 2.733271e-06        TRUE
+# 72ad3532d7af68d0a8118bf7140984d0 5.248862e-06    6     NA 3.202574e-02 3.202574e-02        TRUE
+
+# 
+# abc[abc$p.prev>0.05,]
+# max(abc$p.prev)
+# hist(round(abc$freq*100,1))
+# 
+# rownames(tax_table(TAX)[rownames(tax_table(TAX)) %in% rownames(contamdf.prev[which(contamdf.prev$contaminant),])])
+# 
+# 
+# contamdf.prev05 <- isContaminant(chaston_phyloseq, method="prevalence", neg="is.neg", threshold=0.5,batch = "seqrun", batch.combine = "minimum" )
+# table(contamdf.prev05$contaminant)
+# rownames(contamdf.prev05[which(contamdf.prev05$contaminant),])
+# ps.pa <- transform_sample_counts(chaston_phyloseq, function(abund) 1*(abund>0))
+# ps.pa.neg <- prune_samples(sample_data(ps.pa)$control == "control", ps.pa)
+# ps.pa.pos <- prune_samples(sample_data(ps.pa)$control == "sample", ps.pa)
+# df.pa <- data.frame(pa.pos=taxa_sums(ps.pa.pos), pa.neg=taxa_sums(ps.pa.neg),
+#                       contaminant=contamdf.prev$contaminant,
+#                     contam2 = contamdf.prev05$contaminant)
+# ggplot(data=df.pa, aes(x=pa.neg, y=pa.pos, color=contaminant)) + geom_point() +
+#   xlab("Prevalence (Negative Controls)") + ylab("Prevalence (True Samples)") + scale_color_manual(values = c("red","black"))
+# 
+# 
+# 
+# tax_table(TAX)[rownames(tax_table(TAX)) %in% rownames(contamdf.prev05[which(contamdf.prev05$contaminant),])] 
+# 
+# 
+# 
+# abc <- contamdf.prev[which(contamdf.prev$contaminant),]
+# 
+# hist(round(abc$freq*100,1))
+# 
+# tax_table(TAX)[rownames(tax_table(TAX)) %in% rownames(contamdf.prev[which(contamdf.prev$contaminant),])] 
+
+
+abc <- read.table('table-2014677_noWR.txt', comment.char = "", fill = T, sep = "\t")
+abcA <- abc %>% filter(!V1%in%c("f46244fc6e4f7641b44324411a023a3e","c5ea0301c20417c4702c804fbd40bd00","f05bb57a8505db89349323f306ca7042","28beeda2b73cef057a0ba673151a3ba7","72ad3532d7af68d0a8118bf7140984d0","2f7c7c5f870fc8a9ade40842f72d5f43","bb6d97a9bcc97e39f567ba6ce41c2406","8fbaf4a52e929d41f92cbf93bf2f57e9","14cd2c58454095cfa7ae99a372986843","73038e20c897de04bfa9a236d5bccba9","92990ff0b8f59b266ab39f2df2995a49","d8b471637f8e8616fe3d6ceeb0a1700a","def777f061c475530d8d6cec508ca18b","4a5a5bbc4451f636dbcb9ebd3d304a1f","4d752351fe06081312bb785e73b2ce7d","000877bb7362b5b22484858dfaf3bca3","02188a7bee42cf8400ced52ca6ea6050","cd238685c00e38ed70fca666591b222c","6e997da62564630428f7acd945e41e69","1f16accbe3bc6a3202a37d89d6ae6a20","c5f5a21e936aa145ec5facf8d3084795","d326e04be704aa50b527b212000b56d1","31085715a93b1d9bc009a1105f51c6d5","b0b9ad43833642ba8107c8f281a0545e","3a87525185ac7b97666a86d615e6814d","f2092fc1996a632abb4271de44f67eb3","698a8679188c46c8a0e5bb1679611a16","88ba6369d41ec9c89bbd9f735da0da4f","caab7dcc7c8fb298f39aff65ec124ae2","da08e27d1c2504290ae8c73b70d83970","d0fee61f7a5f5fddb96726100a392356","68250a1fd2800d0b06281d7a002b8425","20c529baaf210252e84df64cf00c1fed","c0e1c7145c6e0ec94fd57ead3a464cd3","24c0b05380f5d93fb14fed74a1bdca0d","b7307f0356a2f4502d7c7d3b1b66100a","c613f45fc7e232add449137cb19f106c","f180e4494a83cc6f0937d810c97ccbce","da82f94cee40c7b1bf00c56307138c1d"))
+dim(abc)-dim(abcA)
+length(c("f46244fc6e4f7641b44324411a023a3e","c5ea0301c20417c4702c804fbd40bd00","f05bb57a8505db89349323f306ca7042","28beeda2b73cef057a0ba673151a3ba7","72ad3532d7af68d0a8118bf7140984d0","2f7c7c5f870fc8a9ade40842f72d5f43","bb6d97a9bcc97e39f567ba6ce41c2406","8fbaf4a52e929d41f92cbf93bf2f57e9","14cd2c58454095cfa7ae99a372986843","73038e20c897de04bfa9a236d5bccba9","92990ff0b8f59b266ab39f2df2995a49","d8b471637f8e8616fe3d6ceeb0a1700a","def777f061c475530d8d6cec508ca18b","4a5a5bbc4451f636dbcb9ebd3d304a1f","4d752351fe06081312bb785e73b2ce7d","000877bb7362b5b22484858dfaf3bca3","02188a7bee42cf8400ced52ca6ea6050","cd238685c00e38ed70fca666591b222c","6e997da62564630428f7acd945e41e69","1f16accbe3bc6a3202a37d89d6ae6a20","c5f5a21e936aa145ec5facf8d3084795","d326e04be704aa50b527b212000b56d1","31085715a93b1d9bc009a1105f51c6d5","b0b9ad43833642ba8107c8f281a0545e","3a87525185ac7b97666a86d615e6814d","f2092fc1996a632abb4271de44f67eb3","698a8679188c46c8a0e5bb1679611a16","88ba6369d41ec9c89bbd9f735da0da4f","caab7dcc7c8fb298f39aff65ec124ae2","da08e27d1c2504290ae8c73b70d83970","d0fee61f7a5f5fddb96726100a392356","68250a1fd2800d0b06281d7a002b8425","20c529baaf210252e84df64cf00c1fed","c0e1c7145c6e0ec94fd57ead3a464cd3","24c0b05380f5d93fb14fed74a1bdca0d","b7307f0356a2f4502d7c7d3b1b66100a","c613f45fc7e232add449137cb19f106c","f180e4494a83cc6f0937d810c97ccbce","da82f94cee40c7b1bf00c56307138c1d"))
+
+write.table(abcA, "table-2014677_noWRdecontam.txt", row.names=F, quote = F, sep = "\t", col.names = F)
+
+```
+
+```{bash, eval = F}
+
+conda activate qiime2-amplicon-2024.5
+
+name=2014677
+
+biom convert -i table-2014677_noWRdecontam.txt -o table-2014677_noWRdecontam/feature-table.biom --to-hdf5 --table-type="OTU table"
+qiime tools import --input-path table-2014677_noWRdecontam/feature-table.biom --type 'FeatureTable[Frequency]' --input-format BIOMV210Format --output-path table-2014677_noWRdecontam.qza
+
+qiime feature-table summarize \
+--i-table table-$name""_noWRdecontam.qza \
+--o-visualization table-$name""_noWRdecontam.qzv \
+--m-sample-metadata-file $mapper
+
+```
+
+# Figure 1
+## Field Sampling
+### bash
+```{bash Figure 1A linvilla bash, eval = F}
+
+conda activate qiime2-2019.10
+
+ls
+
+name=linvilla
+mapper=amber_mapper_7.tsv
+seqsdir=reads/
+
+	## import the sequences
+qiime tools import \
+  --type 'SampleData[PairedEndSequencesWithQuality]' \
+  --input-path $seqsdir \
+  --input-format 'CasavaOneEightSingleLanePerSampleDirFmt' \
+  --output-path demux-paired-end-$name"".qza
+
+qiime demux summarize \
+  --i-data demux-paired-end-$name"".qza \
+  --o-visualization demux-$name"".qzv
+  
+qiime dada2 denoise-paired \
+  --i-demultiplexed-seqs demux-paired-end-$name"".qza \
+  --p-trim-left-f 6 \
+  --p-trim-left-r 6 \
+  --p-trunc-len-f 249 \
+  --p-trunc-len-r 229 \
+  --o-table table-$name"".qza \
+  --o-representative-sequences rep-seqs-$name"".qza \
+  --o-denoising-stats denoising-stats-$name"".qza
+
+with open("~/Dropbox/sequencing/Dec\ 2016/amber_flies/amber_mapper_7.tsv", encoding="utf8", errors='ignore') as f:
+
+qiime feature-table summarize \
+--i-table table-$name"".qza \
+--o-visualization table-$name"".qzv \
+--m-sample-metadata-file $mapper
+
+qiime tools export \
+--input-path table-$name"".qza \
+--output-path table-$name""
+
+biom convert -i table-$name""/feature-table.biom -o rarefied_table-$name"".txt --to-tsv
+
+qiime feature-classifier classify-sklearn \
+  --i-classifier ../../2019-08-Robert-Schmidt2017-Utah-GeraldParkW1118-DeerRun2/gg-13-8-99-515-806-nb-classifier.qza \
+  --i-reads rep-seqs-$name"".qza \
+  --o-classification taxonomy-$name"".qza
+
+qiime metadata tabulate \
+  --m-input-file taxonomy-$name"".qza \
+  --o-visualization taxonomy-$name"".qzv
+
+qiime tools export \
+--input-path taxonomy-$name"".qza \
+--output-path taxonomy-$name""
+
+# filter out wolbachia reads
+qiime taxa filter-table --i-table table-$name"".qza --i-taxonomy taxonomy-$name"".qza --p-exclude Wolbachia --o-filtered-table table-$name""_noW.qza
+
+qiime feature-table summarize \
+--i-table table-$name""_noW.qza \
+--o-visualization table-$name""_noW.qzv \
+--m-sample-metadata-file $mapper
+
+## make a tree
+qiime phylogeny align-to-tree-mafft-fasttree \
+  --i-sequences rep-seqs-$name"".qza \
+  --o-alignment aligned-rep-seqs-$name"".qza \
+  --o-masked-alignment masked-aligned-rep-seqs-$name"".qza \
+  --o-tree unrooted-tree-$name"".qza \
+  --o-rooted-tree rooted-tree-$name"".qza
+  
+sdepth=115
+
+bash ../../16sscripts/standard_qiime3.sh $name""_noW $name linvilla $sdepth amber_mapper_7.tsv "(Latitude = '39.8845')"
+
+bash ../../16sscripts/standard_qiime3.sh $name""_noW $name linvilla2009 $sdepth amber_mapper_7.tsv "(Latitude = '39.8845' AND year = '2009')"
+bash ../../16sscripts/standard_qiime3.sh $name""_noW $name linvilla2010 $sdepth amber_mapper_7.tsv "(Latitude = '39.8845' AND year = '2010')"
+bash ../../16sscripts/standard_qiime3.sh $name""_noW $name linvilla2011 $sdepth amber_mapper_7.tsv "(Latitude = '39.8845' AND year = '2011')"
+bash ../../16sscripts/standard_qiime3.sh $name""_noW $name linvilla2012 $sdepth amber_mapper_7.tsv "(Latitude = '39.8845' AND year = '2012')"
+
+
+```
+
+### - Figure 1A - Taxon plot
+```{r}
+
+file_path <- "linvilla"
+mapper_file <- "amber_mapper_7.tsv"
+## "_r" files have the 2 control samples removed, to simplify statistics
+
+make_permanova_tables2date(file_path = file_path, mapper_file = mapper_file, flies_unifrac_table = flies_unifrac_table, pform = "~ time_date", converttable = c("date2"),   date_col = "date2", beta_div_tests = c("unweighted_unifrac","weighted_unifrac","bray_curtis"), seed_to_set = 42, byval = "terms",stratavar=NULL)
+
+# bash ../../16sscripts/betadispandrare.sh a aa linvilla 115 amber_mapper_7.tsv "date_num" aaa aaaa
+# bash ../../16sscripts/betadispandrare.sh a aa linvilla 115 amber_mapper_7.tsv "date_numa" aaa aaaa
+
+insert_beta_disp(file_path = "linvilla", row_in_table = c("Time"), row_from_qzvname = c("date_num"))
+
+var1 = "date2"
+var2 = "year"
+taxonomic_level = "order"
+rpa_in_chart = 0.025
+the_two_var = "twovar"
+the_id = "X.SampleID"
+plot_color = c("black","magenta","brown","orange","green1","green4","purple","blue","red")
+plot_order = c("Actinomycetales", "Flavobacteriales", "Neisseriales","Pseudomonadales",     "Enterobacteriales" ,"Bacillales", "Lactobacillales", "Rhodospirillales")
+x_val = "date_num"
+read_depth = 115
+map_path = "-linvilla"
+legend_position = "none"
+
+otu_table <- read.table(paste('core-metrics-results-',file_path,'/rarefied_table.txt',sep=""), comment.char="", header=T, sep="\t", fill=T, skip=1) %>% left_join(read.csv(paste0('taxonomy',map_path,'/taxonomy_forR.csv')), by=c("X.OTU.ID"="Feature.ID"))
+	map2 <- read.table(mapper_file,comment.char = "", header=T, fill=T, sep="\t") %>% dplyr::select(all_of(c("X.SampleID", "date2", "year")))
+	
+	## make melted OTU table
+	otu_table$OTU <- as.character(otu_table$X.OTU.ID)
+	otu2 <- otu_table[,c("X.OTU.ID","kingdom","phylum","class","order","family","genus","species","OTU")]
+	otu2$OTU <- as.character(otu2$OTU)
+	melted_table <- data.frame(OTU_ID=character(),Count=integer(), Sample=character(), stringsAsFactors = F)
+	for (i in 2:(dim(otu_table)[2]-7-1)) {
+		rm(new_table)
+		new_table <- data.frame(OTU=as.character(otu_table$OTU),Count=as.integer(otu_table[,i]),Sample=as.character(colnames(otu_table)[i]), stringsAsFactors = F)
+		melted_table <- rbind(melted_table, new_table)
+	}
+	
+	## start merging
+	melted_table_no0 <- melted_table %>% filter(Count>-1)
+	mt0 <- melted_table_no0 %>% inner_join(otu2, by=c("OTU"="X.OTU.ID"))
+	mt0$sample2 <- gsub("X","", mt0$Sample)
+	mt1 <- mt0 %>% inner_join(map2, by=c("sample2" = "X.SampleID"))
+	mt2 <- mt1 %>% arrange(phylum, class,order,family,genus,species,OTU)
+	mt2$sort_order <- c(1:dim(mt2)[1])
+	mt2$class <- paste(mt2$phylum, mt2$class,sep="_")
+	mt2$order <- paste(mt2$class, mt2$order,sep="_")
+	mt2$family <- paste(mt2$order, mt2$family,sep="_")
+	mt2$genus <- paste(mt2$family, mt2$genus,sep="_")
+	mt2$species <- paste(mt2$genus, mt2$species,sep="_")
+	mt2$OTU <- paste(mt2$species, mt2$OTU,sep="_")
+	
+	## make the interactive variable
+	mt2$twovar <- paste(mt2[,var1], mt2[,var2],sep="-")
+	table(list(mt2$twovar))
+	
+	## find the rare taxa
+	rare_taxa <- mt2 %>% group_by(across(all_of(taxonomic_level))) %>% summarize(phylum.abun=sum(Count)) %>% mutate(rpa = phylum.abun / sum(phylum.abun)) %>% filter(rpa<=rpa_in_chart) %>% dplyr::select(any_of(taxonomic_level)) %>% unlist()
+
+	
+	the_id = "sample2"
+	rt2 <- mt2 %>% group_by((across(all_of(c(var1,var2, the_two_var, the_id))))) %>% filter(get(taxonomic_level)%in%rare_taxa) %>% 	summarise(phylum.abun = sum(Count)) %>% mutate(taxonomic_level = "other") 
+	
+	## find the abundant taxa
+	abun_taxa <- mt2 %>% group_by((across(all_of(c(var1,var2, the_two_var, the_id))))) %>% filter(get(taxonomic_level)%in%rare_taxa==F) %>% mutate(taxonomic_level = order) %>% data.frame()
+	
+	abundant_taxa <- names(table(list(abun_taxa[,paste(taxonomic_level)])))
+	
+	abundant_taxa <- c(abundant_taxa, " p__Actinobacteria_ c__Actinobacteria_ o__Actinomycetales"," p__Bacteroidetes_ c__Flavobacteriia_ o__Flavobacteriales", " p__Proteobacteria_ c__Betaproteobacteria_ o__Neisseriales", " p__Proteobacteria_ c__Gammaproteobacteria_ o__Pseudomonadales")
+			
+		#group_by(across(all_of(taxonomic_level))) %>% summarize(phylum.abun=sum(Count)) %>% dplyr::select(any_of(taxonomic_level)) %>% unlist()
+
+	
+	#abundant_taxa <- abundant_taxa[!abundant_taxa %in% c("__")]
+		new_abun <- abundant_taxa
+	print(new_abun)
+	for(i in 1:length(new_abun)) {
+		try(space_split_vector <- strsplit(new_abun[i], split = " "))
+		try(while (paste(tail(strsplit(tail(space_split_vector[[1]], 1),split = "")[[1]], 2), collapse="") == "__") {
+			try(space_split_vector[[1]] <- head(space_split_vector[[1]], -1))#; space_split_vector[[1]]
+		})
+		try(new_abun[i] <- gsub(strsplit(tail(space_split_vector[[1]],1), "__")[[1]][2], pattern = "_",replacement = ""))
+	}
+	print(new_abun)
+
+	mergenames <- data.frame(abundant_taxa) %>% cbind(data.frame(new_abun))
+	as.character(mergenames$abundant_taxa)
+#[1] "Clostridiales"     "Actinomycetales"   "Flavobacteriales"  "Neisseriales"      "Pseudomonadales"   "Enterobacteriales" "Bacillales"        "Lactobacillales"   "Rhodospirillales" 
+	print(new_abun)
+#[1] "Lactobacillales"   "Clostridiales"     "Rhodospirillales"  "Enterobacteriales" "Actinomycetales"   "Flavobacteriales"  "Neisseriales"      "Pseudomonadales"  
+	
+	plot_color = c("black","yellow","green4","blue","red")
+plot_order = c("Clostridiales","Enterobacteriales", "Lactobacillales", "Rhodospirillales")
+plot_color = c("black","yellow","magenta","brown","orange","green1","green4","blue","red")
+plot_order = c("Clostridiales","Actinomycetales", "Flavobacteriales", "Neisseriales","Pseudomonadales",     "Enterobacteriales" , "Lactobacillales", "Rhodospirillales")
+
+
+	rt2 <- mt2 %>% filter(!order %in% abundant_taxa) %>% group_by((across(all_of(c(var1,var2, the_two_var, the_id))))) %>% filter(get(taxonomic_level)%in%rare_taxa) %>% 	summarise(phylum.abun = sum(Count)) %>% mutate(taxonomic_level = "other") 
+
+	abun_taxa <- mt2 %>% group_by((across(all_of(c(var1,var2, the_two_var, the_id, taxonomic_level))))) %>% filter(get(taxonomic_level)%in%abundant_taxa) %>% summarise(phylum.abun = sum(Count)) %>% full_join(mergenames, by = c("order" = "abundant_taxa")) %>% mutate(order = new_abun) %>% dplyr::select(-new_abun) %>% dplyr::rename(taxonomic_level = order) #group_by((across(all_of(c(var1,var2, the_two_var, the_id, taxonomic_level)))))
+	
+		## merge the two into a new file
+	rta_median_table <- rt2 %>% bind_rows(abun_taxa)	%>% droplevels
+	rta_median <- median(table(list(rta_median_table$sample2)))
+	
+	rta_time <- data.frame(table(list(rta_median_table$twovar))) %>% mutate(Freq=Freq/rta_median)
+	
+	rta <- rt2 %>% bind_rows(abun_taxa) %>% inner_join(rta_time, by=c("twovar" = "Var1")) %>% group_by(twovar) %>% mutate(rpa = phylum.abun/(Freq* read_depth)) %>% filter(rpa>0) %>% droplevels()
+
+	rta$taxonomic_level
+	
+	if(length(plot_order) == 1) {
+		plot_order <- new_abun
+	}
+	
+	rta$genus2 <- unlist(unname(rta[,"taxonomic_level"]))
+	rta$genus2 <- factor(rta$genus2,levels=c("other",plot_order))
+	
+	if(length(plot_color) == 1) {
+		plot_color <- c(rep("red", length(table(list(rta$genus2)))))
+	}
+	
+		table(list(rta$date2))
+	rta$date_num2 <- as.Date(as.character(rta$date2), "%m/%d/%y")
+	table(list(rta$date_num2))
+	x_val <- "date_num2"
+	
+	rta$genus2
+	rta$date_num2
+	
+	figure_1a <- ggplot(rta, aes(x = date_num2, y = rpa, fill = genus2)) + 
+	#	facet_grid(.~get(var1) * get(var2) , drop = TRUE, space = "free", scales = "free") + 
+		geom_bar(stat = "identity", width = 15) +
+		scale_fill_manual(name = "Legend", values=plot_color) +	
+#	  scale_x_date(name = "Date", date_breaks = "1 month", date_labels  = c(" ","Jul '09"," ","Sep"," ","Nov"," ","Jan '10"," ","Mar"," ","May"," ","Jul "," ","Sep"," ","Nov"," ","Jan '11"," ","Mar"," ","May"," ","Jul "," ","Sep"," ","Nov"," ","Jan '12"," ","Mar"," ","May"," ","Jul "," ","Sep"," ","Nov"," ")) +
+	  scale_x_date(name = "Date", date_breaks = "1 month", labels = c(" ","Jul '09"," ","Sep"," ","Nov"," ","Jan '10"," ","Mar"," ","May"," ","Jul "," ","Sep"," ","Nov"," ","Jan '11"," ","Mar"," ","May"," ","Jul "," ","Sep"," ","Nov"," ","Jan '12"," ","Mar"," ","May"," ","Jul "," ","Sep"," ","Nov"," "," "," ")) +
+	  scale_y_continuous(name = "Fractional abundance") +
+	  theme_cowplot() +
+	  theme(legend.position="bottom", 
+	        axis.text.x = element_text(angle = 45, hjust = 1)) 
+	
+	figure_1a
+	
+	
+	fig1legend_plot <- g_legend(figure_1a + theme(legend.position = "bottom", legend.text = element_text(size = 14, hjust = 0.5), legend.title = element_blank()) + guides(fill=guide_legend(nrow=1,byrow=F)) + scale_fill_manual(name = "", values = plot_color, labels = c("All others",plot_order)))
+plot(fig1legend_plot)
+
+
+	
+```
+
+### ANCOM
+```{r, warning=F, message=F}
+
+var1 = "date_num"
+var2 = "year"
+var3 = "date2"
+var4 = "date_num"
+the_id = "X.SampleID"
+taxonomic_level = "X.OTU.ID"
+name_levels <- c("X.OTU.ID")
+newcol = "newcol"
+adjusted = F
+repeated = F
+main.var="date_num"
+adj.formula=NULL
+repeat.var = NULL
+longitudinal = F
+random.formula = "~1|year"
+multcorr="fdr"
+sig=0.05
+prev.cut=0.9
+Group = "date2"
+map_path = "-linvilla"
+
+taxonomic_level = "phylum"
+for (taxonomic_level in c("phylum","class","order","family","genus","species","X.OTU.ID")) {
+  try(make_ancom2_plots_seasonal(file_path, map_path=map_path, mapper_file=mapper_file, taxonomic_level=taxonomic_level,var1=var1,var2=var2,var3=var3,var4 = var4,newcol="newcol", the_id = "X.SampleID", main.var=main.var, adj.formula=adj.formula, random.formula = random.formula, repeat.var = repeat.var, multcorr=multcorr, sig=sig, prev.cut=prev.cut, Group = Group))
+}
+  
+
+
+
+```
+
+## Mesocosm sampling
+### bash
+```{r, eval=F}
+
+name=2014677
+mapper=metadata_mergedrun_removed.txt
+
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam $name fig1_decontam 750 $mapper "((year = 'y2016' AND treatment = 'S' and NOT time = 'base' AND seqrun = 'seqrunA') OR (year = 'y2017' AND treatment = 'E' AND seqrun = 'seqrunA') OR (year = 'y2014' AND treatment = 'E'))" yes
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam $name fig1_decontamforlapha 750 $mapper "((year = 'y2016' AND treatment = 'S' and NOT time = 'base' AND seqrun = 'seqrunA') OR (year = 'y2017' AND treatment = 'E' AND seqrun = 'seqrunA') OR (year = 'y2014' AND treatment = 'E'))" yes
+bash ../16sscripts/betarare.sh $name""_noWRdecontam $name fig1_decontam 750 $mapper "((year = 'y2016' AND treatment = 'S' and NOT time = 'base' AND seqrun = 'seqrunA') OR (year = 'y2017' AND treatment = 'E' AND seqrun = 'seqrunA') OR (year = 'y2014' AND treatment = 'E'))" 100
+
+```
+
+### - PERMANOVA
+```{r}
+file_path <- "fig1_decontam"
+mapper_file <- "metadata_mergedrun_removed.txt"
+
+
+flies_unweighted <- read.table(paste('core-metrics-results-',file_path,'/unweighted_unifrac_distance_matrix/distance-matrix.tsv',sep=""), header=T, sep="\t") %>% mutate(X=as.character(X))
+flies_unweighted_dm <- as.dist(flies_unweighted[,2:dim(flies_unweighted)[2]])
+flies_unifrac_table <- flies_unweighted %>% dplyr::select(X) %>% left_join(read.table(mapper_file,comment.char = "", header=T, fill=T, sep="\t"), by=c("X"="X.SampleID")) %>% droplevels()
+
+table(flies_unifrac_table$year)
+table(flies_unifrac_table$cage)
+table(flies_unifrac_table$year_time)
+table(flies_unifrac_table$time_number)
+
+make_permanova_tables2fac(file_path = "fig1_decontam", mapper_file = mapper_file, flies_unifrac_table = flies_unifrac_table, pform = "~ time_fac * year + sex", byval = "terms", converttable = c("Time","Year","Sex","T x Y"), stratavar = "yearcage", fac_col = "time_number")
+
+# bash ../16sscripts/betadispandrare.sh a aa fig1_decontam 750 metadata_mergedrun_removed.txt "time_number" aaa aaaa
+# bash ../16sscripts/betadispandrare.sh a aa fig1_decontam 750 metadata_mergedrun_removed.txt "year" aaa aaaa
+# bash ../16sscripts/betadispandrare.sh a aa fig1_decontam 750 metadata_mergedrun_removed.txt "sex" aaa aaaa
+# bash ../16sscripts/betadispandrare.sh a aa fig1_decontam 750 metadata_mergedrun_removed.txt "year_time" aaa aaaa
+
+insert_beta_disp(file_path = "fig1_decontam", row_in_table = c("Time","T x Y","Sex","Year"), row_from_qzvname = c("time_number","year_time","sex","year"))
+
+```
+
+### - Figure 1B - Taxon plot - order
+```{r}
+file_path <- "fig1_decontam"
+mapper_file <- "metadata_mergedrun_removed.txt"
+map_path = "-2014677" # taxonomy folder extension
+
+plotvarnames = c("year","time","year_time") 
+taxonomic_level="order"
+rpa_in_chart = .025
+read_depth = 750
+legend_position = "bottom"
+sort_x_axis = "year"
+x_cluster = "X.SampleID" #
+
+ptp <- prep_taxon_plot(file_path = file_path, map_path = map_path, plotvarnames = plotvarnames, mapper_file = mapper_file, taxonomic_level=taxonomic_level, rpa_in_chart = rpa_in_chart, read_depth = read_depth, legend_position=legend_position,  sort_x_axis = sort_x_axis,  x_cluster = x_cluster, predefined_taxa = c("d__Bacteria_ p__Firmicutes_ c__Clostridia_ o__Clostridiales"), predefined_shortname = c("Clostridiales"))
+
+x_cluster <- "year_time"
+plot_color = c("black","yellow","magenta","brown","orange","green1","green4","blue","red")
+plot_order = c("Clostridiales","Corynebacteriales", "Flavobacteriales", "Burkholderiales","Pseudomonadales","Enterobacterales", "Lactobacillales", "Acetobacterales")
+plot_order <- ptp[[3]]$shortname[c(4,1,2,6,8,7,3,5)]
+facet_formula <- ". ~ year * time"
+sort_x_axis <- "year"
+legend_position = "bottom"
+
+base_plot <- make_taxon_plot_condensed(ptp = ptp, plot_color = plot_color, facet_formula = facet_formula, sort_x_axis = sort_x_axis, x_cluster = x_cluster, plotvarnames = plotvarnames, legend_position = legend_position, read_depth = read_depth, plot_order = plot_order, xorder = "time", column_bar_width = 0.9) 
+
+labeller_names <- c(`y2014` = "Season A", `y2016` = "Season B", `y2017` = "Season C")
+figure_1bMF <- base_plot +   facet_grid(rows = vars(year), drop = T,scales = "free", space = "free", labeller = as_labeller(labeller_names)) + labs(x = "Time", y = "Fractional abundance") + theme(legend.position = "bottom", legend.title = element_blank()) 
+figure_1bMF
+
+```
+
+### - Figure 1C - PcoA
+```{r}
+
+folder_name = paste0(file_path, "/unweighted_unifrac")
+title_name_add = "unweighted Unifrac"
+legend_position = "none"
+  pco1 = 1
+  pco2 = 3
+  shape_var = "time"
+  color_var = "year"
+  fill_var = "year"
+  circle_var = "year"
+  linetype_var = "time"
+  plot_shapes = c(0,7,15,16)
+  plot_fills = c("black","red","blue","yellow","cyan")
+  plot_colors = c("black","red","blue","yellow","cyan")
+  plot_ellipses = c(1,2,3,4)
+  circle_color = c("black","red","blue","yellow","cyan")
+  legend_name = "legend"
+  legend_label = "title"
+  
+plot_uw2016 <- pcoa_manyvar(folder_name = folder_name,mapper_file = mapper_file,title_name_add = title_name_add,legend_position = legend_position ,pco2 = 2, pco1=1, shape_var = shape_var,color_var = color_var ,fill_var = fill_var ,circle_var = circle_var,linetype_var = linetype_var,plot_shapes = plot_shapes,plot_fills = plot_fills,plot_colors = plot_colors ,plot_ellipses = plot_ellipses ,circle_color = circle_color, legend_name = NULL, legend_label = NULL, return_coordinates = T) 
+plot_uw2016[[1]]
+
+folder_name = paste0(file_path, "/weighted_unifrac")
+title_name_add <- "weighted Unifrac"
+plot_w2016 <- pcoa_manyvar(folder_name = folder_name,mapper_file = mapper_file,title_name_add = title_name_add,legend_position = legend_position ,pco2 = 2, pco1=1, shape_var = shape_var,color_var = color_var ,fill_var = fill_var ,circle_var = circle_var,linetype_var = linetype_var,plot_shapes = plot_shapes,plot_fills = plot_fills,plot_colors = plot_colors ,plot_ellipses = plot_ellipses ,circle_color = circle_color, legend_name = NULL, legend_label = NULL, return_coordinates = T)
+plot_w2016[[1]]
+
+folder_name = paste0(file_path, "/bray_curtis")
+title_name_add <- "Bray Curtis"
+plot_bc2016 <- pcoa_manyvar(folder_name = folder_name,mapper_file = mapper_file,title_name_add = title_name_add,legend_position = legend_position ,pco2 = 2, pco1=1, shape_var = shape_var,color_var = color_var ,fill_var = fill_var ,circle_var = circle_var,linetype_var = linetype_var,plot_shapes = plot_shapes,plot_fills = plot_fills,plot_colors = plot_colors ,plot_ellipses = plot_ellipses ,circle_color = circle_color, legend_name = NULL, legend_label = NULL, return_coordinates = T)
+plot_bc2016[[1]] + theme(legend.position = "bottom") 
+
+plot_uw2016p <- plot_uw2016[[1]] + 
+  # scale_fill_manual(name = "Season", values = c("black","red","blue"), labels = c("Season A", "Season B","Season C")) +
+  # scale_color_manual(name = "Season", values = c("black","red","blue"), labels = c("Season A", "Season B","Season C")) +
+  # scale_shape_manual(name = "Sampling time", values = c(0,7,15), labels = c("August", "September","October")) +
+  # scale_linetype_manual(name = "Sampling time", values = c(0,7,15), labels = c("August", "September","October")) +
+  geom_point(data = plot_uw2016[[2]], aes(x = mean1, y = mean2, color = year, shape = time), size = 6)+
+  geom_path(data = plot_uw2016[[2]] %>% filter(year == "y2014"), aes(x = mean1, y = mean2), color = "black", lty = 1, lwd = 2) +
+  geom_path(data = plot_uw2016[[2]] %>% filter(year == "y2016") %>% data.frame(), aes(x = mean1, y = mean2), color = "red", lty = 1, lwd = 2) +
+  geom_path(data = plot_uw2016[[2]] %>% filter(year == "y2017") %>% data.frame(), aes(x = mean1, y = mean2), color = "blue", lty = 1, lwd = 2) +
+  theme(legend.position = "bottom", legend.text = element_text(size = 12), legend.title = element_blank()) 
+
+plot_w2016p <- plot_w2016[[1]] + 
+  # scale_fill_manual(name = "Season", values = c("black","red","blue"), labels = c("Season A", "Season B","Season C")) +
+  # scale_color_manual(name = "Season", values = c("black","red","blue"), labels = c("Season A", "Season B","Season C")) +
+  # scale_shape_manual(name = "Sampling time", values = c(0,7,15), labels = c("August", "September","October")) +
+  # scale_linetype_manual(name = "Sampling time", values = c(0,7,15), labels = c("August", "September","October")) +
+  geom_point(data = plot_w2016[[2]], aes(x = mean1, y = mean2, color = year, shape = time), size = 6)+
+  geom_path(data = plot_w2016[[2]] %>% filter(year == "y2014"), aes(x = mean1, y = mean2), color = "black", lty = 1, lwd = 2) +
+  geom_path(data = plot_w2016[[2]] %>% filter(year == "y2016") %>% data.frame(), aes(x = mean1, y = mean2), color = "red", lty = 1, lwd = 2) +
+  geom_path(data = plot_w2016[[2]] %>% filter(year == "y2017") %>% data.frame(), aes(x = mean1, y = mean2), color = "blue", lty = 1, lwd = 2) 
+
+plot_bc2016p <- plot_bc2016[[1]] + 
+  geom_path(data = plot_bc2016[[2]] %>% filter(year == "y2014") %>% data.frame() %>% mutate(year = factor(year)), aes(x = mean1, y = mean2), color = "black",lty = 1, lwd = 2) +
+  geom_path(data = plot_bc2016[[2]] %>% filter(year == "y2016") %>% data.frame(), aes(x = mean1, y = mean2), color = "red", lty = 1, lwd = 2) +
+  geom_path(data = plot_bc2016[[2]] %>% filter(year == "y2017") %>% data.frame(), aes(x = mean1, y = mean2), color = "blue", lty = 1, lwd = 2) + 
+ geom_point(data = plot_bc2016[[2]], aes(x = mean1, y = mean2, color = year, shape = time), size = 6) 
+  #   scale_fill_manual(name = "Season", values = c("black","red","blue","yellow","cyan"), labels = c("Season A", "Season B","Season C","")) +
+  # scale_color_manual(name = "Season", values = c("black","red","blue","yellow","cyan"), labels = c("Season A", "Season B","Season C","")) +
+  # scale_shape_manual(name = "Sampling time", values = c(0,7,15,16), labels = c("August", "September","October","")) +
+  # scale_linetype_manual(name = "Sampling time", values = c(0,7,15,16), labels = c("August", "September","October","")) 
+
+# plot_bc2016p + scale_linetype_manual(name = "Season", values = plot_shapes, breaks = c("A","B","C"))
+#   scale_fill_manual(name = "", values = c(1:3), breaks = c("y2014","y2015","y2016"))
+  
+  
+  
+plot_legend <- g_legend(plot_bc2016[[1]] + 
+  guides(fill=guide_legend(ncol=1,byrow=F),shape=guide_legend(ncol=1,byrow=F)) + 
+  theme(legend.position = "bottom", legend.text = element_text(size = 18), legend.title = element_text(size = 22)) +
+  scale_fill_manual(name = "Season", values = c("black","red","blue"), labels = c("Season A", "Season B","Season C","")) +
+  scale_color_manual(name = "Season", values = c("black","red","blue","yellow","cyan","white","white","white"), labels = c("Season A", "Season B","Season C","")) +
+  scale_shape_manual(name = "Sampling time", values = c(0,7,15,16), labels = c("August", "September","October","")) +
+  scale_linetype_manual(name = "Sampling time", values = c(0,7,15,16), labels = c("August", "September","October","")) 
+)
+
+
+
+```
+
+### - Figure 1D-E ANCOM
+```{r, warning=F, message=F }
+
+mapper_file <- "metadata_mergedrun_removed.txt"
+map_path = "-2014677" # taxonomy folder extension
+
+var1 = "time_number"
+var2 = "year"
+var3 = "sex"
+var4 = "yearcage"
+var5 = "year_time"
+the_id = "X.SampleID"
+taxonomic_level = "order"
+name_levels <- c("order")
+newcol = "newcol"
+adjusted = F
+repeated = F
+main.var=var1
+adj.formula="year + sex"
+repeat.var = NULL
+longitudinal = F
+random.formula = "~1|yearcage"
+sig=0.05
+multcorr="fdr"
+prev.cut=0.9
+Group = "year_time"
+map_path = "-2014677"
+
+fig1plots_v2 <- (make_ancom2_plots(file_path=file_path, map_path=map_path, mapper_file=mapper_file, taxonomic_level="order",var1=var1,var2=var2,var3=var3, var4 = var4,var5 = var5, newcol="newcol", the_id = "X.SampleID", main.var=main.var, adj.formula=adj.formula, repeat.var = repeat.var, multcorr=multcorr, sig=sig, prev.cut=prev.cut, Group = Group, random.formula=random.formula, return_tables = T))
+
+fig1plots_v2[[1]] + labs(title = NULL, x = "Sampling time", y = "Fractional abundance") + theme(axis.title = element_text(face = "bold"), axis.text.x = element_text(angle = 0)) + scale_x_discrete(labels = c("Aug","Sep","Oct")) + geom_bar(position=position_dodge(), stat="identity", fill = "red") + geom_errorbar(aes(ymin=mean+sem, ymax=mean-sem), width=.2,position=position_dodge(.9), color = "black") + facet_grid(rows = vars(year))
+
+fig1_plotv2 <- fig1plots_v2[[1]] %>% data.frame() %>% mutate(year = factor(c("Season A","Season A","Season A","Season B","Season B","Season B","Season C","Season C","Season C"))) %>% mutate(time = factor(rep(c("Aug","Sep","Oct"),3), levels = c("Aug", "Sep","Oct")))
+
+fig1_plotv2_finished <- ggplot(fig1_plotv2, aes(x = time, y = mean)) + geom_col(fill = "red") + facet_grid(rows = vars(year)) + theme_cowplot() + labs(x = "Sampling time", y = "Fractional abundance") + geom_errorbar(aes(ymin = mean-sem, ymax = mean+sem), width = 0.2)
+fig1_plotv2_finished
+
+```
+
+### ASV-level analyses
+#### bash
+```{sh , eval=F}
+
+name=2014677
+mapper=metadata_mergedrun_removed.txt
+
+qiime taxa filter-table \
+--i-table table-$name""_noWRdecontam.qza \
+--i-taxonomy taxonomy-$name"".qza \
+--p-include Acetobacterales \
+--o-filtered-table table-$name""_noWRdecontam_AAB.qza
+
+qiime feature-table summarize \
+--i-table table-$name""_noWRdecontam_AAB.qza \
+--o-visualization table-$name""_noWRdecontam_AAB.qzv \
+--m-sample-metadata-file $mapper
+
+qiime tools export \
+--input-path table-$name""_noWRdecontam_AAB.qza \
+--output-path table-$name""_noWRdecontam_AAB
+
+biom convert -i table-$name""_noWRdecontam_AAB/feature-table.biom -o table-$name""_noWRdecontam_AAB.txt --to-tsv
+
+
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam_AAB $name fig1_decontam_AAB 40 $mapper "((year = 'y2016' AND treatment = 'S' and NOT time = 'base' AND seqrun = 'seqrunA') OR (year = 'y2017' AND treatment = 'E' AND seqrun = 'seqrunA') OR (year = 'y2014' AND treatment = 'E'))" yes
+bash ../16sscripts/betarare.sh $name""_noWRdecontam_AAB $name fig1_decontam_AAB 40 $mapper "((year = 'y2016' AND treatment = 'S' and NOT time = 'base' AND seqrun = 'seqrunA') OR (year = 'y2017' AND treatment = 'E' AND seqrun = 'seqrunA') OR (year = 'y2014' AND treatment = 'E'))" 100
+
+
+qiime taxa filter-table \
+--i-table table-$name""_noWRdecontam.qza \
+--i-taxonomy taxonomy-$name"".qza \
+--p-include Lactobacillales \
+--o-filtered-table table-$name""_noWRdecontam_LAB.qza
+
+qiime feature-table summarize \
+--i-table table-$name""_noWRdecontam_LAB.qza \
+--o-visualization table-$name""_noWRdecontam_LAB.qzv \
+--m-sample-metadata-file $mapper
+
+qiime tools export \
+--input-path table-$name""_noWRdecontam_LAB.qza \
+--output-path table-$name""_noWRdecontam_LAB
+
+biom convert -i table-$name""_noWRdecontam_LAB/feature-table.biom -o table-$name""_noWRdecontam_LAB.txt --to-tsv
+
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam_LAB $name fig1_decontam_LAB40 40 $mapper "((year = 'y2016' AND treatment = 'S' and NOT time = 'base' AND seqrun = 'seqrunA') OR (year = 'y2017' AND treatment = 'E' AND seqrun = 'seqrunA') OR (year = 'y2014' AND treatment = 'E'))" yes
+bash ../16sscripts/betarare.sh $name""_noWRdecontam_LAB $name fig1_decontam_LAB40 40 $mapper "((year = 'y2016' AND treatment = 'S' and NOT time = 'base' AND seqrun = 'seqrunA') OR (year = 'y2017' AND treatment = 'E' AND seqrun = 'seqrunA') OR (year = 'y2014' AND treatment = 'E'))" 100
+
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam_LAB $name fig1_decontam_LAB750 750 $mapper "((year = 'y2016' AND treatment = 'S' and NOT time = 'base' AND seqrun = 'seqrunA') OR (year = 'y2017' AND treatment = 'E' AND seqrun = 'seqrunA') OR (year = 'y2014' AND treatment = 'E'))" yes
+bash ../16sscripts/betarare.sh $name""_noWRdecontam_LAB $name fig1_decontam_LAB750 750 $mapper "((year = 'y2016' AND treatment = 'S' and NOT time = 'base' AND seqrun = 'seqrunA') OR (year = 'y2017' AND treatment = 'E' AND seqrun = 'seqrunA') OR (year = 'y2014' AND treatment = 'E'))" 100
+
+
+
+
+qiime taxa filter-table \
+--i-table table-$name""_noWRdecontam.qza \
+--i-taxonomy taxonomy-$name"".qza \
+--p-include Enterobacterales \
+--o-filtered-table table-$name""_noWRdecontam_Ent.qza
+
+qiime feature-table summarize \
+--i-table table-$name""_noWRdecontam_Ent.qza \
+--o-visualization table-$name""_noWRdecontam_Ent.qzv \
+--m-sample-metadata-file $mapper
+
+qiime tools export \
+--input-path table-$name""_noWRdecontam_Ent.qza \
+--output-path table-$name""_noWRdecontam_Ent
+
+biom convert -i table-$name""_noWRdecontam_Ent/feature-table.biom -o table-$name""_noWRdecontam_Ent.txt --to-tsv
+
+
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam_Ent $name fig1_decontam_Ent 67 $mapper "((year = 'y2016' AND treatment = 'S' and NOT time = 'base' AND seqrun = 'seqrunA') OR (year = 'y2017' AND treatment = 'E' AND seqrun = 'seqrunA') OR (year = 'y2014' AND treatment = 'E'))" yes
+bash ../16sscripts/betarare.sh $name""_noWRdecontam_Ent $name fig1_decontam_Ent 67 $mapper "((year = 'y2016' AND treatment = 'S' and NOT time = 'base' AND seqrun = 'seqrunA') OR (year = 'y2017' AND treatment = 'E' AND seqrun = 'seqrunA') OR (year = 'y2014' AND treatment = 'E'))" 100
+
+
+
+```
+
+#### AAB
+```{r, warning=F, message=F}
+
+file_path <- "fig1_decontam_AAB"
+mapper_file <- "metadata_mergedrun_removed.txt"
+
+flies_unweighted <- read.table(paste('core-metrics-results-',file_path,'/unweighted_unifrac_distance_matrix/distance-matrix.tsv',sep=""), header=T, sep="\t") %>% mutate(X=as.character(X))
+flies_unweighted_dm <- as.dist(flies_unweighted[,2:dim(flies_unweighted)[2]])
+flies_unifrac_table <- flies_unweighted %>% dplyr::select(X) %>% left_join(read.table(mapper_file,comment.char = "", header=T, fill=T, sep="\t"), by=c("X"="X.SampleID")) %>% droplevels()
+
+table(list(flies_unifrac_table$time_num)) # y2014, y2016, y2017
+table(list(flies_unifrac_table$yearcage)) # 2 3 4
+table(list(flies_unifrac_table$sex)) # F M
+table(list(flies_unifrac_table$year)) # ?
+
+make_permanova_tables2fac(file_path = file_path, mapper_file = mapper_file, flies_unifrac_table = flies_unifrac_table, pform = "~ time_fac * year + sex", byval = "terms", converttable = c("Time","Year","Sex","T x Y"), stratavar = "yearcage", fac_col = "time_num")
+
+# bash ../16sscripts/betadispandrare.sh a aa fig1_decontam_AAB 40 metadata_mergedrun_removed.txt "time_number" aaa aaaa
+# bash ../16sscripts/betadispandrare.sh a aa fig1_decontam_AAB 40 metadata_mergedrun_removed.txt "year" aaa aaaa
+# bash ../16sscripts/betadispandrare.sh a aa fig1_decontam_AAB 40 metadata_mergedrun_removed.txt "sex" aaa aaaa
+# bash ../16sscripts/betadispandrare.sh a aa fig1_decontam_AAB 40 metadata_mergedrun_removed.txt "year_time" aaa aaaa
+
+insert_beta_disp(file_path = "fig1_decontam_AAB", row_in_table = c("Time","T x Y","Sex","Year"), row_from_qzvname = c("time_number","year_time","sex","year"))
+
+
+
+map_path = "-2014677" # taxonomy folder extension
+plotvarnames = c("year","time","year_time") 
+taxonomic_level="ASV"
+rpa_in_chart = .025
+read_depth = 40
+legend_position = "bottom"
+sort_x_axis = "year"
+x_cluster = "X.SampleID" #
+
+ptp <- prep_taxon_plot(file_path = file_path, map_path = map_path, plotvarnames = plotvarnames, mapper_file = mapper_file, taxonomic_level=taxonomic_level, rpa_in_chart = rpa_in_chart, read_depth = read_depth, legend_position=legend_position,  sort_x_axis = sort_x_axis,  x_cluster = x_cluster)
+
+x_cluster <- "year_time"
+plot_color = c("black","orange","magenta","red3","pink","red4","red1")
+plot_order <- ptp[[3]]$shortname[c(6,5,1:4)]
+facet_formula <- ". ~ year * time"
+sort_x_axis <- "year"
+legend_position = "bottom"
+
+base_plot <- make_taxon_plot_condensed(ptp = ptp, plot_color = plot_color, facet_formula = facet_formula, sort_x_axis = sort_x_axis, x_cluster = x_cluster, plotvarnames = plotvarnames, legend_position = legend_position, read_depth = read_depth, plot_order = plot_order, xorder = "time", column_bar_width = 0.9) 
+base_plot
+labeller_names <- c(`y2014` = "Season A", `y2016` = "Season B", `y2017` = "Season C")
+figure1AAB <- base_plot +   facet_grid(rows = vars(year), drop = T,scales = "free", space = "free", labeller = as_labeller(labeller_names)) + labs(x = "Time", y = "Fractional abundance")+ scale_fill_manual(name = NULL, values = plot_color, labels = c("All others", "Acetobacteraceae ASV", "Gluonobacter ASV","Acetobacter ASV1","Acetobacter ASV2","Acetobacter ASV3","Acetobacter ASV4"))+  guides(fill = guide_legend(ncol = 3))
+figure1AAB
+
+
+folder_name = paste0(file_path, "/unweighted_unifrac")
+title_name_add = "unweighted Unifrac"
+legend_position = "none"
+  pco1 = 1
+  pco2 = 3
+  shape_var = "time"
+  color_var = "year"
+  fill_var = "year"
+  circle_var = "year"
+  linetype_var = "time"
+  plot_shapes = c(0,7,15,16)
+  plot_fills = c("black","red","blue","yellow","cyan")
+  plot_colors = c("black","red","blue","yellow","cyan")
+  plot_ellipses = c(1,2,3,4)
+  circle_color = c("black","red","blue","yellow","cyan")
+  legend_name = "legend"
+  legend_label = "title"
+  
+plot_uw2016_AAB <- pcoa_manyvar(folder_name = folder_name,mapper_file = mapper_file,title_name_add = title_name_add,legend_position = legend_position ,pco2 = 2, pco1=1, shape_var = shape_var,color_var = color_var ,fill_var = fill_var ,circle_var = circle_var,linetype_var = linetype_var,plot_shapes = plot_shapes,plot_fills = plot_fills,plot_colors = plot_colors ,plot_ellipses = plot_ellipses ,circle_color = circle_color, legend_name = NULL, legend_label = NULL, return_coordinates = T)
+plot_uw2016_AAB[[1]]
+
+folder_name = paste0(file_path, "/weighted_unifrac")
+title_name_add <- "weighted Unifrac"
+plot_w2016_AAB <- pcoa_manyvar(folder_name = folder_name,mapper_file = mapper_file,title_name_add = title_name_add,legend_position = legend_position ,pco2 = 2, pco1=1, shape_var = shape_var,color_var = color_var ,fill_var = fill_var ,circle_var = circle_var,linetype_var = linetype_var,plot_shapes = plot_shapes,plot_fills = plot_fills,plot_colors = plot_colors ,plot_ellipses = plot_ellipses ,circle_color = circle_color, legend_name = NULL, legend_label = NULL, return_coordinates = T)
+plot_w2016_AAB[[1]]
+
+folder_name = paste0(file_path, "/bray_curtis")
+title_name_add <- "Bray Curtis"
+plot_bc2016_AAB <- pcoa_manyvar(folder_name = folder_name,mapper_file = mapper_file,title_name_add = title_name_add,legend_position = legend_position ,pco2 = 2, pco1=1, shape_var = shape_var,color_var = color_var ,fill_var = fill_var ,circle_var = circle_var,linetype_var = linetype_var,plot_shapes = plot_shapes,plot_fills = plot_fills,plot_colors = plot_colors ,plot_ellipses = plot_ellipses ,circle_color = circle_color, legend_name = NULL, legend_label = NULL, return_coordinates = T)
+plot_bc2016_AAB
+
+plot_uw2016_AABp <- plot_uw2016_AAB[[1]] + geom_point(data = plot_uw2016_AAB[[2]], aes(x = mean1, y = mean2, color = year, shape = time), size = 6)+
+  geom_path(data = plot_uw2016_AAB[[2]] %>% filter(year == "y2014"), aes(x = mean1, y = mean2), color = "black", lty = 1, lwd = 2) +
+  geom_path(data = plot_uw2016_AAB[[2]] %>% filter(year == "y2016") %>% data.frame(), aes(x = mean1, y = mean2), color = "red", lty = 1, lwd = 2) +
+  geom_path(data = plot_uw2016_AAB[[2]] %>% filter(year == "y2017") %>% data.frame(), aes(x = mean1, y = mean2), color = "blue", lty = 1, lwd = 2) 
+
+plot_w2016_AABp <- plot_w2016_AAB[[1]] + geom_point(data = plot_w2016_AAB[[2]], aes(x = mean1, y = mean2, color = year, shape = time), size = 6)+
+  geom_path(data = plot_w2016_AAB[[2]] %>% filter(year == "y2014"), aes(x = mean1, y = mean2), color = "black", lty = 1, lwd = 2) +
+  geom_path(data = plot_w2016_AAB[[2]] %>% filter(year == "y2016") %>% data.frame(), aes(x = mean1, y = mean2), color = "red", lty = 1, lwd = 2) +
+  geom_path(data = plot_w2016_AAB[[2]] %>% filter(year == "y2017") %>% data.frame(), aes(x = mean1, y = mean2), color = "blue", lty = 1, lwd = 2) 
+
+plot_bc2016_AABp <- plot_bc2016_AAB[[1]] + geom_point(data = plot_bc2016_AAB[[2]], aes(x = mean1, y = mean2, color = year, shape = time), size = 6)+
+  geom_path(data = plot_bc2016_AAB[[2]] %>% filter(year == "y2014"), aes(x = mean1, y = mean2), color = "black", lty = 1, lwd = 2) +
+  geom_path(data = plot_bc2016_AAB[[2]] %>% filter(year == "y2016") %>% data.frame(), aes(x = mean1, y = mean2), color = "red", lty = 1, lwd = 2) +
+  geom_path(data = plot_bc2016_AAB[[2]] %>% filter(year == "y2017") %>% data.frame(), aes(x = mean1, y = mean2), color = "blue", lty = 1, lwd = 2) 
+
+
+
+plot_legend_ASV <- g_legend(plot_uw2016_AAB[[1]] + theme(legend.position = "bottom") +
+#  guides(fill=guide_legend(ncol=1,byrow=F),shape=guide_legend(ncol=1,byrow=F), color = guide_legend(ncol=1, byrow=F)) + 
+  theme(legend.position = "bottom", legend.text = element_text(size = 18), legend.title = element_text(size = 22)) +
+  scale_fill_manual(name = "Season", values = c("black","red","blue"), labels = c("Season A", "Season B","Season C","")) +
+  scale_color_manual(name = "Season", values = c("black","red","blue"), labels = c("Season A", "Season B","Season C","")) +
+  scale_shape_manual(name = "Sampling time", values = c(0,7,15,16), labels = c("August", "September","October","")) +
+  scale_linetype_manual(name = "Sampling time", values = c(0,7,15,16), labels = c("August", "September","October","")) 
+)
+
+plot(plot_legend_ASV)
+
+
+```
+
+#### LAB
+```{r, warning=F, message=F}
+
+file_path <- "fig1_decontam_LAB40"
+mapper_file <- "metadata_mergedrun_removed.txt"
+
+
+flies_unweighted <- read.table(paste('core-metrics-results-',file_path,'/unweighted_unifrac_distance_matrix/distance-matrix.tsv',sep=""), header=T, sep="\t") %>% mutate(X=as.character(X))
+flies_unweighted_dm <- as.dist(flies_unweighted[,2:dim(flies_unweighted)[2]])
+flies_unifrac_table <- flies_unweighted %>% dplyr::select(X) %>% left_join(read.table(mapper_file,comment.char = "", header=T, fill=T, sep="\t"), by=c("X"="X.SampleID")) %>% droplevels()
+
+table(list(flies_unifrac_table$time_num)) # y2014, y2016, y2017
+table(list(flies_unifrac_table$yearcage)) # 2 3 4 
+table(list(flies_unifrac_table$sex)) # F M
+table(list(flies_unifrac_table$year)) # ?
+
+make_permanova_tables2fac(file_path = "fig1_decontam_LAB40", mapper_file = mapper_file, flies_unifrac_table = flies_unifrac_table, pform = "~ time_fac * year + sex", byval = "terms", converttable = c("Time","Year","Sex","T x Y"), stratavar = "yearcage", fac_col = "time_num")
+# bash ../16sscripts/betadispandrare.sh a aa fig1_decontam_LAB40 40 metadata_mergedrun_removed.txt "time_number" aaa aaaa
+# bash ../16sscripts/betadispandrare.sh a aa fig1_decontam_LAB40 40 metadata_mergedrun_removed.txt "year" aaa aaaa
+# bash ../16sscripts/betadispandrare.sh a aa fig1_decontam_LAB40 40 metadata_mergedrun_removed.txt "sex" aaa aaaa
+# bash ../16sscripts/betadispandrare.sh a aa fig1_decontam_LAB40 40 metadata_mergedrun_removed.txt "year_time" aaa aaaa
+
+insert_beta_disp(file_path = "fig1_decontam_LAB40", row_in_table = c("Time","T x Y","Sex","Year"), row_from_qzvname = c("time_number","year_time","sex","year"))
+
+
+  
+
+map_path = "-2014677" # taxonomy folder extension
+plotvarnames = c("year","time","year_time") 
+taxonomic_level="ASV"
+rpa_in_chart = .025
+read_depth = 40
+legend_position = "bottom"
+sort_x_axis = "year"
+x_cluster = "X.SampleID" #
+
+ptp <- prep_taxon_plot(file_path = file_path, map_path = map_path, plotvarnames = plotvarnames, mapper_file = mapper_file, taxonomic_level=taxonomic_level, rpa_in_chart = rpa_in_chart, read_depth = read_depth, legend_position=legend_position,  sort_x_axis = sort_x_axis,  x_cluster = x_cluster)
+
+x_cluster <- "year_time"
+plot_color = c("grey","#0047AB","#6CB4EE","#4B0082","#9932CC","#8E4585","#6C3BAA","#D0F0FD","#CCCCFF","#E6E6FA")
+plot_order <- ptp[[3]]$shortname[c(9,8,7,6,5,1,3,2,4)]
+
+base_plot <- make_taxon_plot_condensed(ptp = ptp, plot_color = plot_color, facet_formula = facet_formula, sort_x_axis = sort_x_axis, x_cluster = x_cluster, plotvarnames = plotvarnames, legend_position = legend_position, read_depth = read_depth, plot_order = plot_order, xorder = "time", column_bar_width = 0.9) 
+
+labeller_names <- c(`y2014` = "Season A", `y2016` = "Season B", `y2017` = "Season C")
+figure1LAB <- base_plot +   facet_grid(rows = vars(year), drop = T,scales = "free", space = "free", labeller = as_labeller(labeller_names)) + labs(x = "Time", y = "Fractional abundance") + 
+  scale_fill_manual(name = NULL, values = plot_color, labels = c("All others", "Lactobacillales ASV", "Lactococcus ASV","Floricoccus ASV","Weissella ASV1","Weissella ASV2","Companilactobacillus ASV","Leuconostoc ASV","Lactiplantibacillus ASV","Levilactobacillus ASV")) +  guides(fill = guide_legend(ncol = 3))
+figure1LAB
+
+
+
+folder_name = paste0(file_path, "/unweighted_unifrac")
+title_name_add = "unweighted Unifrac"
+legend_position = "none"
+  shape_var = "time"
+  color_var = "year"
+  fill_var = "year"
+  circle_var = "year"
+  linetype_var = "time"
+  plot_shapes = c(0,7,15,16)
+  plot_fills = c("black","red","blue","yellow","cyan")
+  plot_colors = c("black","red","blue","yellow","cyan")
+  plot_ellipses = c(1,2,3,4)
+  circle_color = c("black","red","blue","yellow","cyan")
+  legend_name = "legend"
+  legend_label = "title"
+  
+plot_uw2016_LAB <- pcoa_manyvar(folder_name = folder_name,mapper_file = mapper_file,title_name_add = title_name_add,legend_position = legend_position ,pco2 = 2, pco1=1, shape_var = shape_var,color_var = color_var ,fill_var = fill_var ,circle_var = circle_var,linetype_var = linetype_var,plot_shapes = plot_shapes,plot_fills = plot_fills,plot_colors = plot_colors ,plot_ellipses = plot_ellipses ,circle_color = circle_color, legend_name = NULL, legend_label = NULL, return_coordinates = T)
+plot_uw2016_LAB[[1]]
+
+folder_name = paste0(file_path, "/weighted_unifrac")
+title_name_add <- "weighted Unifrac"
+plot_w2016_LAB <- pcoa_manyvar(folder_name = folder_name,mapper_file = mapper_file,title_name_add = title_name_add,legend_position = legend_position ,pco2 = 2, pco1=1, shape_var = shape_var,color_var = color_var ,fill_var = fill_var ,circle_var = circle_var,linetype_var = linetype_var,plot_shapes = plot_shapes,plot_fills = plot_fills,plot_colors = plot_colors ,plot_ellipses = plot_ellipses ,circle_color = circle_color, legend_name = NULL, legend_label = NULL, return_coordinates = T)
+plot_w2016_LAB[[1]]
+
+folder_name = paste0(file_path, "/bray_curtis")
+title_name_add <- "Bray Curtis"
+plot_bc2016_LAB <- pcoa_manyvar(folder_name = folder_name,mapper_file = mapper_file,title_name_add = title_name_add,legend_position = legend_position ,pco2 = 2, pco1=1, shape_var = shape_var,color_var = color_var ,fill_var = fill_var ,circle_var = circle_var,linetype_var = linetype_var,plot_shapes = plot_shapes,plot_fills = plot_fills,plot_colors = plot_colors ,plot_ellipses = plot_ellipses ,circle_color = circle_color, legend_name = NULL, legend_label = NULL, return_coordinates = T)
+plot_bc2016_LAB
+
+plot_uw2016p_LABp <- plot_uw2016_LAB[[1]] + geom_point(data = plot_uw2016_LAB[[2]], aes(x = mean1, y = mean2, color = year, shape = time), size = 6)+
+  geom_path(data = plot_uw2016_LAB[[2]] %>% filter(year == "y2014"), aes(x = mean1, y = mean2), color = "black", lty = 1, lwd = 2) +
+  geom_path(data = plot_uw2016_LAB[[2]] %>% filter(year == "y2016") %>% data.frame(), aes(x = mean1, y = mean2), color = "red", lty = 1, lwd = 2) +
+  geom_path(data = plot_uw2016_LAB[[2]] %>% filter(year == "y2017") %>% data.frame(), aes(x = mean1, y = mean2), color = "blue", lty = 1, lwd = 2) 
+
+plot_w2016p_LABp <- plot_w2016_LAB[[1]] + geom_point(data = plot_w2016_LAB[[2]], aes(x = mean1, y = mean2, color = year, shape = time), size = 6)+
+  geom_path(data = plot_w2016_LAB[[2]] %>% filter(year == "y2014"), aes(x = mean1, y = mean2), color = "black", lty = 1, lwd = 2) +
+  geom_path(data = plot_w2016_LAB[[2]] %>% filter(year == "y2016") %>% data.frame(), aes(x = mean1, y = mean2), color = "red", lty = 1, lwd = 2) +
+  geom_path(data = plot_w2016_LAB[[2]] %>% filter(year == "y2017") %>% data.frame(), aes(x = mean1, y = mean2), color = "blue", lty = 1, lwd = 2) 
+
+plot_bc2016p_LABp <- plot_bc2016_LAB[[1]] + geom_point(data = plot_bc2016_LAB[[2]], aes(x = mean1, y = mean2, color = year, shape = time), size = 6)+
+  geom_path(data = plot_bc2016_LAB[[2]] %>% filter(year == "y2014"), aes(x = mean1, y = mean2), color = "black", lty = 1, lwd = 2) +
+  geom_path(data = plot_bc2016_LAB[[2]] %>% filter(year == "y2016") %>% data.frame(), aes(x = mean1, y = mean2), color = "red", lty = 1, lwd = 2) +
+  geom_path(data = plot_bc2016_LAB[[2]] %>% filter(year == "y2017") %>% data.frame(), aes(x = mean1, y = mean2), color = "blue", lty = 1, lwd = 2) 
+
+  
+```
+
+#### LAB750
+```{r, warning=F, message=F}
+
+file_path <- "fig1_decontam_LAB750"
+mapper_file <- "metadata_mergedrun_removed.txt"
+
+
+flies_unweighted <- read.table(paste('core-metrics-results-',file_path,'/unweighted_unifrac_distance_matrix/distance-matrix.tsv',sep=""), header=T, sep="\t") %>% mutate(X=as.character(X))
+flies_unweighted_dm <- as.dist(flies_unweighted[,2:dim(flies_unweighted)[2]])
+flies_unifrac_table <- flies_unweighted %>% dplyr::select(X) %>% left_join(read.table(mapper_file,comment.char = "", header=T, fill=T, sep="\t"), by=c("X"="X.SampleID")) %>% droplevels()
+table(list(flies_unifrac_table$time_num)) # y2014, y2016, y2017
+table(list(flies_unifrac_table$yearcage)) # 2 3 4 
+table(list(flies_unifrac_table$sex)) # F M
+table(list(flies_unifrac_table$year)) # ?
+
+make_permanova_tables2fac(file_path = "fig1_decontam_LAB750", mapper_file = mapper_file, flies_unifrac_table = flies_unifrac_table, pform = "~ time_fac * year + sex", byval = "terms", converttable = c("Time","Year","Sex","T x Y"), stratavar = "yearcage", fac_col = "time_num")
+
+# bash ../16sscripts/betadispandrare.sh a aa fig1_decontam_LAB750 750 metadata_mergedrun_removed.txt "time_number" aaa aaaa
+# bash ../16sscripts/betadispandrare.sh a aa fig1_decontam_LAB750 750 metadata_mergedrun_removed.txt "year" aaa aaaa
+# bash ../16sscripts/betadispandrare.sh a aa fig1_decontam_LAB750 750 metadata_mergedrun_removed.txt "sex" aaa aaaa
+# bash ../16sscripts/betadispandrare.sh a aa fig1_decontam_LAB750 750 metadata_mergedrun_removed.txt "year_time" aaa aaaa
+insert_beta_disp(file_path = "fig1_decontam_LAB750", row_in_table = c("Time","T x Y","Sex","Year"), row_from_qzvname = c("time_number","year_time","sex","year"))
+
+  
+
+map_path = "-2014677" # taxonomy folder extension
+plotvarnames = c("year","time","year_time") 
+taxonomic_level="ASV"
+rpa_in_chart = .025
+read_depth = 750
+legend_position = "bottom"
+sort_x_axis = "year"
+x_cluster = "X.SampleID" #
+
+ptp <- prep_taxon_plot(file_path = file_path, map_path = map_path, plotvarnames = plotvarnames, mapper_file = mapper_file, taxonomic_level=taxonomic_level, rpa_in_chart = rpa_in_chart, read_depth = read_depth, legend_position=legend_position,  sort_x_axis = sort_x_axis,  x_cluster = x_cluster)
+
+x_cluster <- "year_time"
+plot_color = c("grey","#0047AB","#6CB4EE","#4B0082","#9932CC","#8E4585","#6C3BAA","#D0F0FD","#CCCCFF","#E6E6FA")
+plot_order <- ptp[[3]]$shortname[c(9,8,7,6,5,1,3,2,4)]
+
+base_plot <- make_taxon_plot_condensed(ptp = ptp, plot_color = plot_color, facet_formula = facet_formula, sort_x_axis = sort_x_axis, x_cluster = x_cluster, plotvarnames = plotvarnames, legend_position = legend_position, read_depth = read_depth, plot_order = plot_order, xorder = "time", column_bar_width = 0.9) 
+
+labeller_names <- c(`y2014` = "Season A", `y2016` = "Season B", `y2017` = "Season C")
+figure1LAB750 <- base_plot +   facet_grid(rows = vars(year), drop = T,scales = "free", space = "free", labeller = as_labeller(labeller_names)) + labs(x = "Time", y = "Fractional abundance") + 
+  scale_fill_manual(name = NULL, values = plot_color, labels = c("All others", "Lactobacillales ASV", "Lactococcus ASV","Floricoccus ASV","Weissella ASV1","Weissella ASV2","Companilactobacillus ASV","Leuconostoc ASV","Lactiplantibacillus ASV","Levilactobacillus ASV")) +  guides(fill = guide_legend(ncol = 3))
+figure1LAB750
+
+
+
+
+folder_name = paste0(file_path, "/unweighted_unifrac")
+title_name_add = "unweighted Unifrac"
+legend_position = "none"
+  shape_var = "time"
+  color_var = "year"
+  fill_var = "year"
+  circle_var = "year"
+  linetype_var = "time"
+  plot_shapes = c(0,7,15,16)
+  plot_fills = c("black","red","blue","yellow","cyan")
+  plot_colors = c("black","red","blue","yellow","cyan")
+  plot_ellipses = c(1,2,3,4)
+  circle_color = c("black","red","blue","yellow","cyan")
+  legend_name = "legend"
+  legend_label = "title"
+  
+plot_uw2016_LAB <- pcoa_manyvar(folder_name = folder_name,mapper_file = mapper_file,title_name_add = title_name_add,legend_position = legend_position ,pco2 = 2, pco1=1, shape_var = shape_var,color_var = color_var ,fill_var = fill_var ,circle_var = circle_var,linetype_var = linetype_var,plot_shapes = plot_shapes,plot_fills = plot_fills,plot_colors = plot_colors ,plot_ellipses = plot_ellipses ,circle_color = circle_color, legend_name = NULL, legend_label = NULL, return_coordinates = T)
+plot_uw2016_LAB[[1]]
+
+folder_name = paste0(file_path, "/weighted_unifrac")
+title_name_add <- "weighted Unifrac"
+plot_w2016_LAB <- pcoa_manyvar(folder_name = folder_name,mapper_file = mapper_file,title_name_add = title_name_add,legend_position = legend_position ,pco2 = 2, pco1=1, shape_var = shape_var,color_var = color_var ,fill_var = fill_var ,circle_var = circle_var,linetype_var = linetype_var,plot_shapes = plot_shapes,plot_fills = plot_fills,plot_colors = plot_colors ,plot_ellipses = plot_ellipses ,circle_color = circle_color, legend_name = NULL, legend_label = NULL, return_coordinates = T)
+plot_w2016_LAB[[1]]
+
+folder_name = paste0(file_path, "/bray_curtis")
+title_name_add <- "Bray Curtis"
+plot_bc2016_LAB <- pcoa_manyvar(folder_name = folder_name,mapper_file = mapper_file,title_name_add = title_name_add,legend_position = legend_position ,pco2 = 2, pco1=1, shape_var = shape_var,color_var = color_var ,fill_var = fill_var ,circle_var = circle_var,linetype_var = linetype_var,plot_shapes = plot_shapes,plot_fills = plot_fills,plot_colors = plot_colors ,plot_ellipses = plot_ellipses ,circle_color = circle_color, legend_name = NULL, legend_label = NULL, return_coordinates = T)
+plot_bc2016_LAB
+
+plot_uw2016p_LABp <- plot_uw2016_LAB[[1]] + geom_point(data = plot_uw2016_LAB[[2]], aes(x = mean1, y = mean2, color = year, shape = time), size = 6)+
+  geom_path(data = plot_uw2016_LAB[[2]] %>% filter(year == "y2014"), aes(x = mean1, y = mean2), color = "black", lty = 1, lwd = 2) +
+  geom_path(data = plot_uw2016_LAB[[2]] %>% filter(year == "y2016") %>% data.frame(), aes(x = mean1, y = mean2), color = "red", lty = 1, lwd = 2) +
+  geom_path(data = plot_uw2016_LAB[[2]] %>% filter(year == "y2017") %>% data.frame(), aes(x = mean1, y = mean2), color = "blue", lty = 1, lwd = 2) 
+
+plot_w2016p_LABp <- plot_w2016_LAB[[1]] + geom_point(data = plot_w2016_LAB[[2]], aes(x = mean1, y = mean2, color = year, shape = time), size = 6)+
+  geom_path(data = plot_w2016_LAB[[2]] %>% filter(year == "y2014"), aes(x = mean1, y = mean2), color = "black", lty = 1, lwd = 2) +
+  geom_path(data = plot_w2016_LAB[[2]] %>% filter(year == "y2016") %>% data.frame(), aes(x = mean1, y = mean2), color = "red", lty = 1, lwd = 2) +
+  geom_path(data = plot_w2016_LAB[[2]] %>% filter(year == "y2017") %>% data.frame(), aes(x = mean1, y = mean2), color = "blue", lty = 1, lwd = 2) 
+
+plot_bc2016p_LABp <- plot_bc2016_LAB[[1]] + geom_point(data = plot_bc2016_LAB[[2]], aes(x = mean1, y = mean2, color = year, shape = time), size = 6)+
+  geom_path(data = plot_bc2016_LAB[[2]] %>% filter(year == "y2014"), aes(x = mean1, y = mean2), color = "black", lty = 1, lwd = 2) +
+  geom_path(data = plot_bc2016_LAB[[2]] %>% filter(year == "y2016") %>% data.frame(), aes(x = mean1, y = mean2), color = "red", lty = 1, lwd = 2) +
+  geom_path(data = plot_bc2016_LAB[[2]] %>% filter(year == "y2017") %>% data.frame(), aes(x = mean1, y = mean2), color = "blue", lty = 1, lwd = 2) 
+
+  
+```
+
+
+#### Ent
+```{r, warning=F, message=F}
+
+file_path <- "fig1_decontam_Ent"
+mapper_file <- "metadata_mergedrun_removed.txt"
+
+
+flies_unweighted <- read.table(paste('core-metrics-results-',file_path,'/unweighted_unifrac_distance_matrix/distance-matrix.tsv',sep=""), header=T, sep="\t") %>% mutate(X=as.character(X))
+flies_unweighted_dm <- as.dist(flies_unweighted[,2:dim(flies_unweighted)[2]])
+flies_unifrac_table <- flies_unweighted %>% dplyr::select(X) %>% left_join(read.table(mapper_file,comment.char = "", header=T, fill=T, sep="\t"), by=c("X"="X.SampleID")) %>% droplevels()
+table(list(flies_unifrac_table$time_num)) # y2014, y2016, y2017
+table(list(flies_unifrac_table$yearcage)) # 2 3 4 
+table(list(flies_unifrac_table$sex)) # F M
+table(list(flies_unifrac_table$year)) # ?
+
+make_permanova_tables2fac(file_path = file_path, mapper_file = mapper_file, flies_unifrac_table = flies_unifrac_table, pform = "~ time_fac * year + sex", byval = "terms", converttable = c("Time","Year","Sex","T x Y"), stratavar = "yearcage", fac_col = "time_num")
+
+# bash ../16sscripts/betadispandrare.sh a aa fig1_decontam_Ent 67 metadata_mergedrun_removed.txt "time_number" aaa aaaa
+# bash ../16sscripts/betadispandrare.sh a aa fig1_decontam_Ent 67 metadata_mergedrun_removed.txt "year" aaa aaaa
+# bash ../16sscripts/betadispandrare.sh a aa fig1_decontam_Ent 67 metadata_mergedrun_removed.txt "sex" aaa aaaa
+# bash ../16sscripts/betadispandrare.sh a aa fig1_decontam_Ent 67 metadata_mergedrun_removed.txt "year_time" aaa aaaa
+
+insert_beta_disp(file_path = "fig1_decontam_Ent", row_in_table = c("Time","T x Y","Sex","Year"), row_from_qzvname = c("time_number","year_time","sex","year"))
+
+  
+
+map_path = "-2014677" # taxonomy folder extension
+plotvarnames = c("year","time","year_time") 
+taxonomic_level="ASV"
+rpa_in_chart = .025
+read_depth = 67
+legend_position = "bottom"
+sort_x_axis = "year"
+x_cluster = "X.SampleID" #
+
+ptp <- prep_taxon_plot(file_path = file_path, map_path = map_path, plotvarnames = plotvarnames, mapper_file = mapper_file, taxonomic_level=taxonomic_level, rpa_in_chart = rpa_in_chart, read_depth = read_depth, legend_position=legend_position,  sort_x_axis = sort_x_axis,  x_cluster = x_cluster)
+
+x_cluster <- "year_time"
+ plot_color = c("black","chartreuse3","chartreuse2","green4","green1","lightgreen","aquamarine","seagreen4","springgreen2")
+plot_color = c("black","#A8E6CF","#9DC88D","#D5F4E6","#708238","green1","#355E3B","#008080")
+plot_order <- ptp[[3]]$shortname[c(4,5,6,7,3,1,2)]
+facet_formula <- ". ~ year * time"
+sort_x_axis <- "year"
+legend_position = "bottom"
+
+
+labeller_names <- c(`y2014` = "Season A", `y2016` = "Season B", `y2017` = "Season C")
+base_plot <- make_taxon_plot_condensed(ptp = ptp, plot_color = plot_color, facet_formula = facet_formula, sort_x_axis = sort_x_axis, x_cluster = x_cluster, plotvarnames = plotvarnames, legend_position = legend_position, read_depth = read_depth, plot_order = plot_order, xorder = "time", column_bar_width = 0.9) 
+
+figure1Ent <- base_plot + 
+  facet_grid(rows = vars(year), drop = T,scales = "free", space = "free", labeller = as_labeller(labeller_names)) + 
+  labs(x = "Time", y = "Fractional abundance") + 
+  scale_fill_manual(name = NULL, values = plot_color, labels = c("All others", "Enterobacterales ASV1", "Enterobacterales ASV2","Enterobacteriaceae ASV1","Enterobacteriaceae ASV2","Orbaceae ASV","Morganella ASV","Providencia ASV")) + 
+  guides(fill = guide_legend(ncol = 3))
+figure1Ent
+
+
+
+folder_name = paste0(file_path, "/unweighted_unifrac")
+title_name_add = "unweighted Unifrac"
+legend_position = "none"
+  shape_var = "time"
+  color_var = "year"
+  fill_var = "year"
+  circle_var = "year"
+  linetype_var = "time"
+  plot_shapes = c(0,7,15,16)
+  plot_fills = rep(c("black","red","blue","yellow","cyan"),2)
+  plot_colors = rep(c("black","red","blue","yellow","cyan"),2)
+  plot_ellipses = c(1,2,3,4)
+  circle_color = rep(c("black","red","blue","yellow","cyan"),2)
+  legend_name = "legend"
+  legend_label = "title"
+  
+plot_uw2016_Ent <- pcoa_manyvar(folder_name = folder_name,mapper_file = mapper_file,title_name_add = title_name_add,legend_position = legend_position ,pco2 = 2, pco1=1, shape_var = shape_var,color_var = color_var ,fill_var = fill_var ,circle_var = circle_var,linetype_var = linetype_var,plot_shapes = plot_shapes,plot_fills = plot_fills,plot_colors = plot_colors ,plot_ellipses = plot_ellipses ,circle_color = circle_color, legend_name = NULL, legend_label = NULL, return_coordinates = T)
+plot_uw2016_Ent[[1]]
+
+folder_name = paste0(file_path, "/weighted_unifrac")
+title_name_add <- "weighted Unifrac"
+plot_w2016_Ent <- pcoa_manyvar(folder_name = folder_name,mapper_file = mapper_file,title_name_add = title_name_add,legend_position = legend_position ,pco2 = 2, pco1=1, shape_var = shape_var,color_var = color_var ,fill_var = fill_var ,circle_var = circle_var,linetype_var = linetype_var,plot_shapes = plot_shapes,plot_fills = plot_fills,plot_colors = plot_colors ,plot_ellipses = plot_ellipses ,circle_color = circle_color, legend_name = NULL, legend_label = NULL, return_coordinates = T)
+plot_w2016_Ent[[1]]
+
+folder_name = paste0(file_path, "/bray_curtis")
+title_name_add <- "Bray Curtis"
+plot_bc2016_Ent <- pcoa_manyvar(folder_name = folder_name,mapper_file = mapper_file,title_name_add = title_name_add,legend_position = legend_position ,pco2 = 2, pco1=1, shape_var = shape_var,color_var = color_var ,fill_var = fill_var ,circle_var = circle_var,linetype_var = linetype_var,plot_shapes = plot_shapes,plot_fills = plot_fills,plot_colors = plot_colors ,plot_ellipses = plot_ellipses ,circle_color = circle_color, legend_name = NULL, legend_label = NULL, return_coordinates = T)
+plot_bc2016_Ent
+
+plot_uw2016_Entp <- plot_uw2016_Ent[[1]] + geom_point(data = plot_uw2016_Ent[[2]], aes(x = mean1, y = mean2, color = year, shape = time), size = 6)+
+  geom_path(data = plot_uw2016_Ent[[2]] %>% filter(year == "y2014"), aes(x = mean1, y = mean2), color = "black", lty = 1, lwd = 2) +
+  geom_path(data = plot_uw2016_Ent[[2]] %>% filter(year == "y2016") %>% data.frame(), aes(x = mean1, y = mean2), color = "red", lty = 1, lwd = 2) +
+  geom_path(data = plot_uw2016_Ent[[2]] %>% filter(year == "y2017") %>% data.frame(), aes(x = mean1, y = mean2), color = "blue", lty = 1, lwd = 2) 
+
+plot_w2016_Entp <- plot_w2016_Ent[[1]] + geom_point(data = plot_w2016_Ent[[2]], aes(x = mean1, y = mean2, color = year, shape = time), size = 6)+
+  geom_path(data = plot_w2016_Ent[[2]] %>% filter(year == "y2014"), aes(x = mean1, y = mean2), color = "black", lty = 1, lwd = 2) +
+  geom_path(data = plot_w2016_Ent[[2]] %>% filter(year == "y2016") %>% data.frame(), aes(x = mean1, y = mean2), color = "red", lty = 1, lwd = 2) +
+  geom_path(data = plot_w2016_Ent[[2]] %>% filter(year == "y2017") %>% data.frame(), aes(x = mean1, y = mean2), color = "blue", lty = 1, lwd = 2) 
+
+plot_bc2016_Entp <- plot_bc2016_Ent[[1]] + geom_point(data = plot_bc2016_Ent[[2]], aes(x = mean1, y = mean2, color = year, shape = time), size = 6)+
+  geom_path(data = plot_bc2016_Ent[[2]] %>% filter(year == "y2014"), aes(x = mean1, y = mean2), color = "black", lty = 1, lwd = 2) +
+  geom_path(data = plot_bc2016_Ent[[2]] %>% filter(year == "y2016") %>% data.frame(), aes(x = mean1, y = mean2), color = "red", lty = 1, lwd = 2) +
+  geom_path(data = plot_bc2016_Ent[[2]] %>% filter(year == "y2017") %>% data.frame(), aes(x = mean1, y = mean2), color = "blue", lty = 1, lwd = 2) 
+
+  
+```
+
+### figure 1
+```{r, warning=F, message=F}
+
+  labeller_names <- c(`y2014` = "Season A", `y2016` = "Season B", `y2017` = "Season C")
+
+
+text_size = 18
+i=.75
+
+jpeg(h=1200*i*1.5, w=1600*i, "figure_1_2026v2.jpg", units = "px", quality = 0.9, pointsize = 1/300)
+	grid.arrange(	
+		figure_1a + labs(tag = "A") + theme(legend.position = "none", plot.tag = element_text(size = text_size * 2, face = "bold"), axis.title = element_text(face = "bold", size = text_size *1.25), axis.text = element_text(size = text_size)), 
+		figure_1bMF + labs(tag = "B", x= "Sampling time")+ theme(legend.position = "none") +  theme(axis.text.x = element_text(size=text_size), strip.text.y = element_text(size = text_size * 1.2), plot.tag = element_text(size = text_size * 2, face = "bold"), axis.title = element_text(face = "bold", size = text_size *1.25)) + scale_x_discrete(labels=c('August', 'September', 'October')), 
+		fig1legend_plot,
+  plot_bc2016p + labs(tag = "C", title = NULL)+ theme(plot.tag = element_text(size = text_size * 2, face = "bold"), axis.title = element_text(face = "bold", size = text_size *1.25)),	
+ fig1_plotv2_finished + labs(tag = "D") + theme(plot.tag = element_text(size = text_size * 2, face = "bold"), axis.title = element_text(face = "bold", size = text_size *1.25),strip.text.y = element_text(size = text_size * 1.2), axis.text = element_text(size = text_size)), 
+ plot_legend,
+ figure1AAB + labs(tag = "E") + facet_grid(rows = vars(year), drop = T,scales = "free", space = "free", labeller = as_labeller(labeller_names)) + labs(x = "Sampling time", y = "Fractional abundance") + theme(axis.text.x = element_text(size = text_size)) + scale_x_discrete(labels = c("August","September","October"))+ theme(plot.tag = element_text(size = text_size * 2, face = "bold"), axis.title = element_text(face = "bold", size = text_size *1.25), strip.text.y = element_text(size = text_size * 1.2))+ guides(fill = guide_legend(ncol = 2)),
+ figure1LAB + labs(tag = "F") + facet_grid(rows = vars(year), drop = T,scales = "free", space = "free", labeller = as_labeller(labeller_names)) + labs(x = "Sampling time", y = "Fractional abundance") + theme(axis.text.x = element_text(size = text_size)) + scale_x_discrete(labels = c("August","September","October"))+ theme(plot.tag = element_text(size = text_size * 2, face = "bold"), axis.title = element_text(face = "bold", size = text_size *1.25), strip.text.y = element_text(size = text_size * 1.2))+ guides(fill = guide_legend(ncol = 2)),
+ figure1Ent + labs(tag = "G") + facet_grid(rows = vars(year), drop = T,scales = "free", space = "free", labeller = as_labeller(labeller_names)) + labs(x = "Sampling time", y = "Fractional abundance") + theme(axis.text.x = element_text(size = text_size)) + scale_x_discrete(labels = c("August","September","October"))+ theme(plot.tag = element_text(size = text_size * 2, face = "bold"), axis.title = element_text(face = "bold", size = text_size *1.25), strip.text.y = element_text(size = text_size * 1.2))+ guides(fill = guide_legend(ncol = 2)),
+		widths = c(.25,.75,.5,.5,.25,.75),	
+		heights = c(1,.075,1,.18,1.3),	
+		layout_matrix=rbind(		
+			c(1, 1,1,1,2,2),
+			c(NA,3,3,3,3,3),
+			c(4,4,4,4,4,5),
+			c(6,6,6,6,6,5),
+			c(7,7,8,8,9,9)
+			)
+		)
+dev.off()
+
+plot(fig1legend_plot)
+```
+
+
+### figure SX
+```{r, warning=F, message=F}
+i=.75
+
+text_size = 14
+
+jpeg(h=1200*i, w=1600*i, "figure_Spcoa_2026.jpg", units = "px", quality = 0.9, pointsize = 1/300)
+	grid.arrange(plot_uw2016_AABp + labs(tag = "A"), 
+	             plot_w2016_AABp + labs(tag = "B"),
+	             plot_bc2016_AABp + labs(tag = "C"),
+	             plot_uw2016p_LABp + labs(tag = "D"),
+	             plot_w2016p_LABp + labs(tag = "E"),
+	             plot_bc2016p_LABp + labs(tag = "F"),
+	             plot_uw2016_Entp + theme(legend.position = "none") + labs(tag = "G"),
+	             plot_w2016_Entp+ theme(legend.position = "none") + labs(tag = "H"),
+	             plot_bc2016_Entp+ theme(legend.position = "none") + labs(tag = "I"),
+	             plot_legend_ASV,
+		widths = c(1,1,1),
+		heights = c(1,1,1,.3),
+		layout_matrix=rbind(
+			c(1,2,3),
+			c(4,5,6),
+			c(7,8,9),
+			c(10,10,10)
+			)
+		)
+dev.off()
+
+getwd()
+
+```
+
+
+
+# Figure 2
+## bash
+```{r , eval=F}
+
+name=2014677
+mapper=metadata_mergedrun_removed.txt
+
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam $name fig2_genotype 750 $mapper "year = 'y2016' AND treatment IN ('S','F','IF') AND cage NOT in ('S','F','IF')" yes
+bash ../16sscripts/betarare.sh $name""_noWRdecontam $name fig2_genotype 750 $mapper "year = 'y2016' AND treatment IN ('S','F','IF') AND cage NOT in ('S','F','IF')" 100
+
+
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam $name fig2_genotypeSF 750 $mapper "year = 'y2016' AND treatment IN ('S','F') AND cage NOT in ('S','F','IF')" yes
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam $name fig2_genotypeSIF 750 $mapper "year = 'y2016' AND treatment IN ('S','IF') AND cage NOT in ('S','F','IF')" yes
+
+```
+
+## - PERMANOVA
+```{r}
+
+file_path <- "fig2_genotype"
+mapper_file <- "metadata_mergedrun_removed.txt"
+
+flies_unweighted <- read.table(paste('core-metrics-results-',file_path,'/unweighted_unifrac_distance_matrix/distance-matrix.tsv',sep=""), header=T, sep="\t") %>% mutate(X=as.character(X))
+flies_unweighted_dm <- as.dist(flies_unweighted[,2:dim(flies_unweighted)[2]])
+flies_unifrac_table <- flies_unweighted %>% dplyr::select(X) %>% left_join(read.table(mapper_file,comment.char = "", header=T, fill=T, sep="\t"), by=c("X"="X.SampleID")) %>% droplevels()
+
+table(flies_unifrac_table$treatment)
+table(flies_unifrac_table$time_number)
+table(flies_unifrac_table$sex)
+table(flies_unifrac_table$cage)
+table(flies_unifrac_table$treatment_time)
+
+make_permanova_tables2fac(file_path = "fig2_genotype", mapper_file = mapper_file, flies_unifrac_table = flies_unifrac_table, pform = "~ treatment * time_fac + sex", byval = "terms", converttable = c("Genotype","Time","Sex","G x T"), stratavar = "cage", fac_col = "time_number")
+# 
+# bash ../16sscripts/betadispandrare.sh a aa fig2_genotype 750 metadata_mergedrun_removed.txt "time_number" aaa aaaa
+# bash ../16sscripts/betadispandrare.sh a aa fig2_genotype 750 metadata_mergedrun_removed.txt "treatment" aaa aaaa
+# bash ../16sscripts/betadispandrare.sh a aa fig2_genotype 750 metadata_mergedrun_removed.txt "sex" aaa aaaa
+# bash ../16sscripts/betadispandrare.sh a aa fig2_genotype 750 metadata_mergedrun_removed.txt "cage" aaa aaaa
+
+insert_beta_disp(file_path = "fig2_genotype", row_in_table = c("Genotype","Time","Sex","G x T"), row_from_qzvname = c("treatment","time_number","sex","treatment_time"))
+
+```
+
+## - taxon plot
+```{r}
+
+file_path <- "fig2_genotype"
+mapper_file <- "metadata_mergedrun_removed.txt"
+
+map_path = "-2014677" # taxonomy folder extension
+plotvarnames = c("treatment","time","treatment_time") 
+taxonomic_level="order"
+rpa_in_chart = .025
+read_depth = 750
+legend_position = "bottom"
+sort_x_axis = "year"
+x_cluster = "X.SampleID" #
+
+ptp <- prep_taxon_plot(file_path = file_path, map_path = map_path, plotvarnames = plotvarnames, mapper_file = mapper_file, taxonomic_level=taxonomic_level, rpa_in_chart = rpa_in_chart, read_depth = read_depth, legend_position=legend_position,  sort_x_axis = sort_x_axis,  x_cluster = x_cluster)
+
+x_cluster <- "treatment_time"
+plot_color = c("black","magenta","brown","lightgreen","green4","blue","red")
+plot_order = c("Corynebacteriales", "Flavobacteriales", "Burkholderiales","Enterobacterales", "Lactobacillales", "Acetobacterales")
+facet_formula <- ". ~ treatment * time"
+sort_x_axis <- "time"
+legend_position = "bottom"
+
+base_plot <- make_taxon_plot_condensed(ptp = ptp, plot_color = plot_color, facet_formula = facet_formula, sort_x_axis = sort_x_axis, x_cluster = x_cluster, plotvarnames = plotvarnames, legend_position = legend_position, read_depth = read_depth, plot_order = plot_order, xorder = "time", column_bar_width = 0.9, relevel_row = "treatment", relevelrow_vec = rev(c("IF","F","S")))
+
+labeller_names <- c(`F` = "Fall", `IF` = "Inversion-free", `S` = "Spring")
+fig2_taxon <- base_plot +   facet_grid(rows = vars(treatment), drop = T,scales = "free", space = "free", labeller = as_labeller(labeller_names)) + labs(x = "Sampling time", y = "Fractional abundance") + scale_x_discrete(labels = c("Pre-field","Aug","Sep","Oct")) + theme(axis.text.x = element_text(size = 12))
+
+plot_fig2legend <- g_legend(make_taxon_plot_condensed(ptp = ptp, plot_color = plot_color, facet_formula = facet_formula, sort_x_axis = sort_x_axis, x_cluster = x_cluster, plotvarnames = plotvarnames, legend_position = "right", read_depth = read_depth, plot_order = plot_order, xorder = "time", column_bar_width = 0.9, relevel_row = "treatment", relevelrow_vec = rev(c("IF","F","S"))) + guides(fill=guide_legend(nrow=3,byrow=F)) + scale_fill_manual(name = "", values = plot_color))
+
+plot(plot_fig2legend)
+
+
+```
+
+## - pcoa
+```{r}
+
+folder_name = paste0(file_path, "/unweighted_unifrac")
+title_name_add = "unweighted Unifrac"
+legend_position = "none"
+  pco1 = 1
+  pco2 = 2
+  shape_var = "time"
+  color_var = "treatment"
+  fill_var = "treatment"
+  circle_var = "time"
+  linetype_var = "time"
+  plot_shapes = c(17,0,7,15,1)
+  plot_fills = c("black","red","blue","black","black","black","black")
+  plot_colors = c("black","red","blue", "black","black","black","black")
+  plot_ellipses = c(1,3,2,1,1)
+  circle_color = c("cyan","black","red","blue", "yellow","green","yellow")
+  legend_name = "legend"
+  legend_label = "title"
+  legend_label = NULL
+  legend_name = NULL
+
+plot_uw2016 <- pcoa_manyvar_circle_elsewhere(folder_name = folder_name,mapper_file = mapper_file,title_name_add = title_name_add,legend_position = legend_position ,pco2 = 2, pco1=1, shape_var = shape_var,color_var = color_var ,fill_var = fill_var ,circle_var = circle_var,linetype_var = linetype_var,plot_shapes = plot_shapes,plot_fills = plot_fills,plot_colors = plot_colors ,plot_ellipses = plot_ellipses ,circle_color = circle_color, legend_name = NULL, legend_label = NULL, return_coordinates = T) 
+plot_uw2016[[1]] + theme(legend.position = "bottom")
+
+folder_name = paste0(file_path, "/weighted_unifrac")
+title_name_add <- "weighted Unifrac"
+plot_w2016 <- pcoa_manyvar_circle_elsewhere(folder_name = folder_name,mapper_file = mapper_file,title_name_add = title_name_add,legend_position = legend_position ,pco2 = 2, pco1=1, shape_var = shape_var,color_var = color_var ,fill_var = fill_var ,circle_var = circle_var,linetype_var = linetype_var,plot_shapes = plot_shapes,plot_fills = plot_fills,plot_colors = plot_colors ,plot_ellipses = plot_ellipses ,circle_color = circle_color, legend_name = NULL, legend_label = NULL, return_coordinates = T)
+plot_w2016[[1]]
+
+folder_name = paste0(file_path, "/bray_curtis")
+title_name_add <- "Bray Curtis"
+plot_bc2016 <- pcoa_manyvar_circle_elsewhere(folder_name = folder_name,mapper_file = mapper_file,title_name_add = title_name_add,legend_position = legend_position ,pco2 = 2, pco1=1, shape_var = shape_var,color_var = color_var ,fill_var = fill_var ,circle_var = circle_var,linetype_var = linetype_var,plot_shapes = plot_shapes,plot_fills = plot_fills,plot_colors = plot_colors ,plot_ellipses = plot_ellipses ,circle_color = circle_color, legend_name = NULL, legend_label = NULL, return_coordinates = T)
+plot_bc2016[[1]] + theme(legend.position = "bottom") 
+
+plot_uw2016p <- plot_uw2016[[1]] + 
+  geom_point(data = plot_uw2016[[2]], aes(x = mean1, y = mean2, color = treatment, shape = time), size = 6) +
+  geom_path(data = (plot_uw2016[[2]] %>% filter(treatment == "F"))[c(4,1,2,3),], aes(x = mean1, y = mean2), color = "black", lty = 1, lwd = .3) + 
+  geom_path(data = (plot_uw2016[[2]] %>% filter(treatment == "IF"))[c(4,1,2,3),], aes(x = mean1, y = mean2), color = "red", lty = 1, lwd = .3) +
+  geom_path(data = (plot_uw2016[[2]] %>% filter(treatment == "S"))[c(4,1,2,3),], aes(x = mean1, y = mean2), color = "blue", lty = 1, lwd = .3) +
+  theme(legend.position = "bottom", legend.text = element_text(size = 12), legend.title = element_blank()) 
+
+plot_w2016p <- plot_w2016[[1]] + 
+  geom_point(data = plot_w2016[[2]], aes(x = mean1, y = mean2, color = treatment, shape = time), size = 6) +
+  geom_path(data = (plot_w2016[[2]] %>% filter(treatment == "F"))[c(4,1,2,3),], aes(x = mean1, y = mean2), color = "black", lty = 1, lwd = .3) + 
+  geom_path(data = (plot_w2016[[2]] %>% filter(treatment == "IF"))[c(4,1,2,3),], aes(x = mean1, y = mean2), color = "red", lty = 1, lwd = .3) +
+  geom_path(data = (plot_w2016[[2]] %>% filter(treatment == "S"))[c(4,1,2,3),], aes(x = mean1, y = mean2), color = "blue", lty = 1, lwd = .3) 
+
+plot_bc2016p <- plot_bc2016[[1]] + 
+  geom_point(data = plot_bc2016[[2]], aes(x = mean1, y = mean2, color = treatment, shape = time), size = 6) +
+  geom_path(data = (plot_bc2016[[2]] %>% filter(treatment == "F"))[c(4,1,2,3),], aes(x = mean1, y = mean2), color = "black", lty = 1, lwd = .3) + 
+  geom_path(data = (plot_bc2016[[2]] %>% filter(treatment == "IF"))[c(4,1,2,3),], aes(x = mean1, y = mean2), color = "red", lty = 1, lwd = .3) +
+  geom_path(data = (plot_bc2016[[2]] %>% filter(treatment == "S"))[c(4,1,2,3),], aes(x = mean1, y = mean2), color = "blue", lty = 1, lwd = .3) 
+
+fig2_pc_plot_legend <- g_legend(plot_bc2016[[1]] + 
+  guides(fill=guide_legend(ncol=1,byrow=F),shape=guide_legend(ncol=1,byrow=F)) + 
+  theme(legend.position = "bottom", legend.text = element_text(size = 14), legend.title = element_text(size = 18)) +
+  scale_fill_manual(name = "Starting genotype", values = c("blue","black","red", "yellow","cyan","black","black"), labels = c("Spring","Fall","Inversion-Free","")) +
+  scale_color_manual(name = "Starting genotype", values = c("blue","black","red","yellow","cyan","black","black"), labels = c("Spring","Fall","Inversion-Free","")) +
+  scale_shape_manual(name = "Sampling time", values = plot_shapes, labels = c("Pre-field","August", "September","October")) +
+  scale_linetype_manual(name = "Sampling time", values = plot_shapes, labels = c("Pre-field","August", "September","October"))
+
+)
+
+
+plot(fig2_pc_plot_legend)
+
+```
+
+## - distance plot
+```{r}
+
+file_path <- "fig2_genotype"
+mapper_file <- "metadata_mergedrun_removed.txt"
+
+var1 = "time"
+var2 = "time"
+comparisons = c("basebase_basebase","T1T1_T1T1","T2T2_T2T2","T3T3_T3T3")
+folder_path = paste0(file_path,"/weighted_unifrac")
+title_name_add = "weighted Unifrac distance"
+the_xid="XID"
+anglenum = 45
+Wdist <- make_distance_plot_2var(folder_path, mapper_file, var1, var2, comparisons, title_name_add, the_xid = the_xid, anglenum=anglenum)
+plot(Wdist)
+#Kruskal-Wallis chi-squared = 3842.8, df = 3, p-value < 2.2e-16
+
+folder_path = paste0(file_path,"/unweighted_unifrac")
+title_name_add = "unweighted Unifrac distance"
+Udist <- make_distance_plot_2var(folder_path, mapper_file, var1, var2, comparisons, title_name_add, the_xid = the_xid, anglenum=anglenum)
+plot(Udist)
+#Kruskal-Wallis chi-squared = 2437.2, df = 3, p-value < 2.2e-16
+
+folder_path = paste0(file_path,"/bray_curtis")
+title_name_add = "Bray Curtis Unifrac distance"
+Bdist <- make_distance_plot_2var(folder_path, mapper_file, var1, var2, comparisons, title_name_add, the_xid = the_xid, anglenum=anglenum)
+plot(Bdist)
+#Kruskal-Wallis chi-squared = 2236.5, df = 3, p-value < 2.2e-16
+
+jpeg(h=400, w=1600/3*2, "FigureSx_fig2betadivdistance.jpg", units = "px", quality = 0.9, pointsize = 1/300)
+	grid.arrange(	
+		Udist + labs(tag = "A", title = NULL, x = "Sampling time") + scale_x_discrete(labels = c("Pre-field","Aug","Sep","Oct")) + theme(axis.text.x = element_text(hjust = 1))+ theme(plot.tag = element_text(size = text_size * 2, face = "bold")),
+		Wdist + labs(tag = "B", title = NULL, x = "Sampling time") + scale_x_discrete(labels = c("Pre-field","Aug","Sep","Oct")) + theme(axis.text.x = element_text(hjust = 1))+ theme(plot.tag = element_text(size = text_size * 2, face = "bold")), 
+		widths = c(1,1),	
+		heights = c(1),	
+		layout_matrix=rbind(		
+			c(1,2,3)
+		))
+dev.off()
+
+
+```
+
+## - Figure SX (fig2 ANCOM)
+```{r, warning=F, message=F}
+
+
+var1 = "treatment_time"
+var2 = "time_number"
+var3 = "sex"
+var4 = "treatment"
+the_id = "X.SampleID"
+taxonomic_level = "order"
+name_levels <- c("order")
+newcol = "newcol"
+adjusted = F
+repeated = F
+main.var="treatment"
+adj.formula="sex"
+repeat.var = "time_number"
+longitudinal = T
+random.formula = "~1|time_number"
+sig=0.05
+multcorr="fdr"
+prev.cut=0.9
+Group = "treatment"
+map_path = "-2014677"
+
+for (taxonomic_level in c("phylum","class","order","family","genus","species","X.OTU.ID")) {
+  try(make_ancom2_plots(file_path=file_path, map_path="-2014677", mapper_file=mapper_file, taxonomic_level=taxonomic_level,var1=var1,var2=var2,var3=var3, var4 = var4,newcol="newcol", the_id = "X.SampleID", main.var=main.var, adj.formula=adj.formula, repeat.var = repeat.var, multcorr=multcorr, sig=sig, prev.cut=prev.cut, Group = Group, random.formula=random.formula))
+}
+
+
+fig2plots <- (make_ancom2_plots(file_path=file_path, map_path=map_path, mapper_file=mapper_file, taxonomic_level="order",var1=var1,var2=var2,var3=var3, var4 = var4,newcol="newcol", the_id = "X.SampleID", main.var=main.var, adj.formula=adj.formula, repeat.var = repeat.var, multcorr=multcorr, sig=sig, prev.cut=prev.cut, Group = Group, random.formula=random.formula, return_plots = T))
+
+fig2_Coryne <- fig2plots[[1]] + labs(title = NULL, x = "Sampling time", y = "Fractional abundance") + theme(axis.title = element_text(face = "bold"), axis.text.x = element_text(angle = 0)) + scale_x_discrete(labels = c("Aug","Sep","Oct")) + geom_bar(position=position_dodge(), stat="identity", fill = "magenta") + geom_errorbar(aes(ymin=mean+sem, ymax=mean-sem), width=.2,position=position_dodge(.9), color = "black") 
+
+fig2_Coryne
+ggsave(h=8, w=10, paste0('core-metrics-results-',file_path,"/",file_path,"ancomplot_corynebacteria.jpg"), bg = "white")
+
+
+
+
+```
+
+
+### figure 2
+```{r}
+
+text_size = 14
+i=.6
+jpeg(h=1600/2.5*i, w=1600*i, "figure_2_2026.jpg", units = "px", quality = 0.9, pointsize = 1/300)
+	grid.arrange(	
+		fig2_taxon + labs(tag = "A") + theme(legend.position = "none",plot.tag = element_text(size = text_size * 2, face = "bold")), 
+		plot_bc2016p + labs(tag = "B")+ theme(legend.position = "none",plot.tag = element_text(size = text_size * 2, face = "bold")),
+		Bdist + labs(tag = "C", title = NULL) + scale_x_discrete(labels = c("Pre-field","Aug","Sep","Oct")) + theme(axis.text.x = element_text(hjust = 1))+ theme(plot.tag = element_text(size = text_size * 2, face = "bold")),
+		plot_fig2legend,
+		widths = c(1,1,.85),	
+		heights = c(1, .2),	
+		layout_matrix=rbind(		
+			c(1,2,3),
+			c(4,NA,NA)
+			)
+		)
+dev.off()
+
+jpeg(h=1600/2.5*i, w=1600*i, "figure_2_2026_legend.jpg", units = "px", quality = 0.9, pointsize = 1/300)
+	grid.arrange(	
+		fig2_pc_plot_legend,
+		widths = c(1,1,.85),	
+		heights = c(1, .28),	
+		layout_matrix=rbind(		
+			c(NA,NA,NA),
+			c(NA,1,NA)
+			)
+		)
+dev.off()
+
+
+```
+
+# Figure 3
+## bash
+```{r , eval=F}
+
+conda info --envs
+
+conda activate qiime2-amplicon-2024.5
+
+echo $name
+cd ~/Dropbox/sequencing/2014677
+name=2014677
+mapper=metadata_mergedrun_removed.txt
+
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam $name fig3_environment 750 $mapper "seqrun IN ('seqrunB') AND treatment IN ('B','E','F') AND time IN ('t1','t2','t3')" yes
+bash ../16sscripts/betarare.sh $name""_noWRdecontam $name fig3_environment 750 $mapper "seqrun IN ('seqrunB') AND treatment IN ('B','E','F')" 100
+
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam $name fig3_environmentBE 750 $mapper "seqrun IN ('seqrunB') AND treatment IN ('B','E') AND time IN ('t1','t2','t3')" yes
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam $name fig3_environmentEF 750 $mapper "seqrun IN ('seqrunB') AND treatment IN ('E','F') AND time IN ('t1','t2','t3')" yes
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam $name fig3_environmentBF 750 $mapper "seqrun IN ('seqrunB') AND treatment IN ('B','F') AND time IN ('t1','t2','t3')" yes
+
+
+```
+
+## PERMANOVA
+```{r}
+
+file_path <- "fig3_environment"
+mapper_file <- "metadata_mergedrun_removed.txt"
+
+flies_unweighted <- read.table(paste('core-metrics-results-',file_path,'/unweighted_unifrac_distance_matrix/distance-matrix.tsv',sep=""), header=T, sep="\t") %>% mutate(X=as.character(X))
+flies_unweighted_dm <- as.dist(flies_unweighted[,2:dim(flies_unweighted)[2]])
+flies_unifrac_table <- flies_unweighted %>% dplyr::select(X) %>% left_join(read.table(mapper_file,comment.char = "", header=T, fill=T, sep="\t"), by=c("X"="X.SampleID")) %>% droplevels()
+
+table(flies_unifrac_table$treatment)
+table(flies_unifrac_table$time_number)
+table(flies_unifrac_table$sex)
+table(flies_unifrac_table$cage)
+table(flies_unifrac_table$treatment_time)
+
+make_permanova_tables2fac(file_path = "fig3_environment", mapper_file = mapper_file, flies_unifrac_table = flies_unifrac_table, pform = "~ treatment * time_fac + sex", byval = "terms", converttable = c("Treatment","Time","Sex","Tr x Ti"), stratavar = "cage", fac_col = "time_number")
+
+# bash ../16sscripts/betadispandrare.sh a aa fig3_environment 750 metadata_mergedrun_removed.txt "time_number" aaa aaaa
+# bash ../16sscripts/betadispandrare.sh a aa fig3_environment 750 metadata_mergedrun_removed.txt "treatment" aaa aaaa
+# bash ../16sscripts/betadispandrare.sh a aa fig3_environment 750 metadata_mergedrun_removed.txt "sex" aaa aaaa
+# bash ../16sscripts/betadispandrare.sh a aa fig3_environment 750 metadata_mergedrun_removed.txt "treatment_time" aaa aaaa
+
+insert_beta_disp(file_path = "fig3_environment", row_in_table = c("Treatment","Time","Sex","Tr x Ti"), row_from_qzvname = c("treatment","time_number","sex","treatment_time"))
+
+```
+
+## taxon plot
+```{r}
+
+file_path <- "fig3_environment"
+mapper_file <- "metadata_mergedrun_removed.txt"
+
+map_path = "-2014677" # taxonomy folder extension
+plotvarnames = c("treatment","time","treatment_time") 
+taxonomic_level="order"
+rpa_in_chart = .025
+read_depth = 750
+legend_position = "bottom"
+sort_x_axis = "year"
+x_cluster = "X.SampleID" #
+
+ptp <- prep_taxon_plot(file_path = file_path, map_path = map_path, plotvarnames = plotvarnames, mapper_file = mapper_file, taxonomic_level=taxonomic_level, rpa_in_chart = rpa_in_chart, read_depth = read_depth, legend_position=legend_position,  sort_x_axis = sort_x_axis,  x_cluster = x_cluster)
+
+x_cluster <- "treatment_time"
+plot_color = c("black","magenta","brown","lightgreen","green4","blue","red")
+plot_order = c("Corynebacteriales", "Flavobacteriales", "Burkholderiales","Enterobacterales", "Lactobacillales", "Acetobacterales")
+facet_formula <- ". ~ treatment * time"
+sort_x_axis <- "time"
+legend_position = "bottom"
+
+base_plot <- make_taxon_plot_condensed(ptp = ptp, plot_color = plot_color, facet_formula = facet_formula, sort_x_axis = sort_x_axis, x_cluster = x_cluster, plotvarnames = plotvarnames, legend_position = legend_position, read_depth = read_depth, plot_order = plot_order, xorder = "time", column_bar_width = 0.9, relevel_row = "treatment", relevelrow_vec = (c("E","F","B")))
+
+labeller_names <- c(`E` = "Outdoor", `F` = "Transplant", `B` = "Indoor")
+fig3_taxon <- base_plot +   facet_grid(rows = vars(treatment), drop = T,scales = "free", space = "free", labeller = as_labeller(labeller_names)) + labs(x = "Sampling time", y = "Fractional abundance") + scale_x_discrete(labels = c("Aug","Sep","Oct")) + theme(axis.text.x = element_text(size = 12))
+fig3_taxon
+
+plot_fig3legend <- g_legend(make_taxon_plot_condensed(ptp = ptp, plot_color = plot_color, facet_formula = facet_formula, sort_x_axis = sort_x_axis, x_cluster = x_cluster, plotvarnames = plotvarnames, legend_position = "right", read_depth = read_depth, plot_order = plot_order, xorder = "time", column_bar_width = 0.9, relevel_row = "treatment", relevelrow_vec = rev(c("IF","F","S"))) + guides(fill=guide_legend(ncol=2,byrow=T)) + scale_fill_manual(name = "   ", values = plot_color, labels = c("All others",plot_order))+ theme(legend.text = element_text(size = text_size)))
+
+plot(plot_fig3legend)
+
+
+```
+
+## pcoa
+```{r}
+
+folder_name = paste0(file_path, "/unweighted_unifrac")
+title_name_add = "unweighted Unifrac"
+legend_position = "none"
+  shape_var = "time"
+  color_var = "treatment"
+  fill_var = "treatment"
+  circle_var = "treatment"
+  linetype_var = "treatment"
+  plot_shapes = c(0,7,15,1)
+  plot_fills = c("black","blue","red","black","black","black","black")
+  plot_colors = c("black","blue","red", "black","black","black","black")
+  plot_ellipses = c(1,1,1,1,1)
+  circle_color = c("cyan","black","red","blue", "yellow","green","yellow")
+  legend_name = "legend"
+  legend_label = "title"
+  legend_label = NULL
+  legend_name = NULL
+
+plot_uw_fig3 <- pcoa_manyvar_circle_elsewhere(folder_name = folder_name,mapper_file = mapper_file,title_name_add = title_name_add,legend_position = legend_position ,pco2 = 2, pco1=1, shape_var = shape_var,color_var = color_var ,fill_var = fill_var ,circle_var = circle_var,linetype_var = linetype_var,plot_shapes = plot_shapes,plot_fills = plot_fills,plot_colors = plot_colors ,plot_ellipses = plot_ellipses ,circle_color = circle_color, legend_name = NULL, legend_label = NULL, return_coordinates = T) 
+plot_uw_fig3[[1]] + theme(legend.position = "bottom")
+
+folder_name = paste0(file_path, "/weighted_unifrac")
+title_name_add <- "weighted Unifrac"
+plot_w_fig3 <- pcoa_manyvar_circle_elsewhere(folder_name = folder_name,mapper_file = mapper_file,title_name_add = title_name_add,legend_position = legend_position ,pco2 = 2, pco1=1, shape_var = shape_var,color_var = color_var ,fill_var = fill_var ,circle_var = circle_var,linetype_var = linetype_var,plot_shapes = plot_shapes,plot_fills = plot_fills,plot_colors = plot_colors ,plot_ellipses = plot_ellipses ,circle_color = circle_color, legend_name = NULL, legend_label = NULL, return_coordinates = T)
+plot_w_fig3[[1]]
+
+folder_name = paste0(file_path, "/bray_curtis")
+title_name_add <- "Bray Curtis"
+plot_bc_fig3 <- pcoa_manyvar_circle_elsewhere(folder_name = folder_name,mapper_file = mapper_file,title_name_add = title_name_add,legend_position = legend_position ,pco2 = 2, pco1=1, shape_var = shape_var,color_var = color_var ,fill_var = fill_var ,circle_var = circle_var,linetype_var = linetype_var,plot_shapes = plot_shapes,plot_fills = plot_fills,plot_colors = plot_colors ,plot_ellipses = plot_ellipses ,circle_color = circle_color, legend_name = NULL, legend_label = NULL, return_coordinates = T)
+plot_bc_fig3[[1]] + theme(legend.position = "bottom") 
+
+plot_uw_fig3p <- plot_uw_fig3[[1]] + 
+  geom_point(data = plot_uw_fig3[[2]], aes(x = mean1, y = mean2, color = treatment, shape = time), size = 6) +
+  geom_path(data = (plot_uw_fig3[[2]] %>% filter(treatment == "B"))[c(1,2,3),], aes(x = mean1, y = mean2), color = "black", lty = 1, lwd = 1) + 
+  geom_path(data = (plot_uw_fig3[[2]] %>% filter(treatment == "F"))[c(1,2,3),], aes(x = mean1, y = mean2), color = "red", lty = 1, lwd = 1) +
+  geom_path(data = (plot_uw_fig3[[2]] %>% filter(treatment == "E"))[c(1,2,3),], aes(x = mean1, y = mean2), color = "blue", lty = 1, lwd = 1) +
+  theme(legend.position = "bottom", legend.text = element_text(size = 12), legend.title = element_blank()) 
+plot_uw_fig3p
+plot_w_fig3p <- plot_w_fig3[[1]] + 
+  geom_point(data = plot_w_fig3[[2]], aes(x = mean1, y = mean2, color = treatment, shape = time), size = 6) +
+  geom_path(data = (plot_w_fig3[[2]] %>% filter(treatment == "B"))[c(1,2,3),], aes(x = mean1, y = mean2), color = "black", lty = 1, lwd = 1) + 
+  geom_path(data = (plot_w_fig3[[2]] %>% filter(treatment == "F"))[c(1,2,3),], aes(x = mean1, y = mean2), color = "red", lty = 1, lwd = 1) +
+  geom_path(data = (plot_w_fig3[[2]] %>% filter(treatment == "E"))[c(1,2,3),], aes(x = mean1, y = mean2), color = "blue", lty = 1, lwd = 1) 
+plot_w_fig3p
+plot_bc_fig3p <- plot_bc_fig3[[1]] + 
+  geom_point(data = plot_bc_fig3[[2]], aes(x = mean1, y = mean2, color = treatment, shape = time), size = 6) +
+  geom_path(data = (plot_bc_fig3[[2]] %>% filter(treatment == "B"))[c(1,2,3),], aes(x = mean1, y = mean2), color = "black", lty = 1, lwd = 1) + 
+  geom_path(data = (plot_bc_fig3[[2]] %>% filter(treatment == "F"))[c(1,2,3),], aes(x = mean1, y = mean2), color = "red", lty = 1, lwd = 1) +
+  geom_path(data = (plot_bc_fig3[[2]] %>% filter(treatment == "E"))[c(1,2,3),], aes(x = mean1, y = mean2), color = "blue", lty = 1, lwd = 1) 
+plot_bc_fig3p
+
+fig3_pc_plot_legend <- g_legend(plot_bc_fig3[[1]] + 
+  guides(fill=guide_legend(ncol=1,byrow=F),shape=guide_legend(ncol=1,byrow=F)) + 
+  theme(legend.position = "bottom", legend.text = element_text(size = 14), legend.title = element_text(size = 18)) +
+  scale_fill_manual(name = "Treatment", values = c("blue","red","black", "yellow","cyan","black","black"), labels = c("Outdoor","Transplant","Indoor","")) +
+  scale_color_manual(name = "Treatment", values = c("blue","red","black","yellow","cyan","black","black"), labels = c("Outdoor","Transplant","Indoor","")) +
+  scale_shape_manual(name = "Sampling time", values = plot_shapes, labels = c("August", "September","October")) +
+  scale_linetype_manual(name = "Sampling time", values = plot_shapes, labels = c("August", "September","October"))
+
+)
+
+
+plot(fig3_pc_plot_legend)
+
+```
+
+### - distance plot C
+```{r}
+
+file_path <- "fig3_environment"
+mapper_file <- "metadata_mergedrun_removed.txt"
+
+var1 = "treatment"
+var2 = "treatment"
+comparisons = c("FF_FF","EE_FF","BB_FF")
+folder_path = paste0(file_path,"/weighted_unifrac")
+title_name_add = "weighted Unifrac distance"
+the_xid="XID"
+anglenum = 45
+fig3cWdist <- make_distance_plot_2var(folder_path, mapper_file, var1, var2, comparisons, title_name_add, the_xid = the_xid, anglenum=anglenum)
+plot(fig3cWdist)
+#Kruskal-Wallis chi-squared = 3842.8, df = 3, p-value < 2.2e-16
+
+folder_path = paste0(file_path,"/unweighted_unifrac")
+title_name_add = "unweighted Unifrac distance"
+fig3cUdist <- make_distance_plot_2var(folder_path, mapper_file, var1, var2, comparisons, title_name_add, the_xid = the_xid, anglenum=anglenum)
+plot(fig3cUdist)
+#Kruskal-Wallis chi-squared = 2437.2, df = 3, p-value < 2.2e-16
+
+folder_path = paste0(file_path,"/bray_curtis")
+title_name_add = "Bray Curtis Unifrac distance"
+fig3cBdist <- make_distance_plot_2var(folder_path, mapper_file, var1, var2, comparisons, title_name_add, the_xid = the_xid, anglenum=anglenum)
+plot(fig3cBdist)
+#Kruskal-Wallis chi-squared = 2236.5, df = 3, p-value < 2.2e-16
+
+jpeg(h=400, w=1600/3*2, "FigureSx_fig3Cbetadivdistance.jpg", units = "px", quality = 0.9, pointsize = 1/300)
+	grid.arrange(	
+		fig3cUdist + labs(tag = "A", y = "Index distance of\ntransplant vs:", x = "Treatment", title = NULL) + scale_x_discrete(limits = c("FF_FF","EE_FF","BB_FF"), labels = c("Itself","Outdoor","Indoor")) + theme(axis.text.x = element_text(hjust = 1), axis.title = element_text(face = "bold"))+ theme(plot.tag = element_text(size = text_size * 2, face = "bold"), axis.title = element_text(face = "bold", size = text_size *1.25)),
+		fig3cWdist + labs(tag = "B", y = "Index distance of\ntransplant vs:", x = "Treatment", title = NULL) + scale_x_discrete(limits = c("FF_FF","EE_FF","BB_FF"), labels = c("Itself","Outdoor","Indoor")) + theme(axis.text.x = element_text(hjust = 1), axis.title = element_text(face = "bold"))+ theme(plot.tag = element_text(size = text_size * 2, face = "bold"), axis.title = element_text(face = "bold", size = text_size *1.25)), 
+		widths = c(1,1),	
+		heights = c(1),	
+		layout_matrix=rbind(		
+			c(1,2)
+		))
+dev.off()
+```
+
+### - distance plot D
+```{r}
+
+file_path <- "fig3_environment"
+mapper_file <- "metadata_mergedrun_removed.txt"
+
+var1 = "treatment"
+var2 = "treatment"
+comparisons = c("EE_EE","FF_FF","BB_BB")
+folder_path = paste0(file_path,"/weighted_unifrac")
+title_name_add = "weighted Unifrac distance"
+the_xid="XID"
+anglenum = 45
+fig3dWdist <- make_distance_plot_2var(folder_path, mapper_file, var1, var2, comparisons, title_name_add, the_xid = the_xid, anglenum=anglenum)
+plot(fig3dWdist)
+#Kruskal-Wallis chi-squared = 3842.8, df = 3, p-value < 2.2e-16
+
+folder_path = paste0(file_path,"/unweighted_unifrac")
+title_name_add = "unweighted Unifrac distance"
+fig3dUdist <- make_distance_plot_2var(folder_path, mapper_file, var1, var2, comparisons, title_name_add, the_xid = the_xid, anglenum=anglenum)
+plot(fig3dUdist)
+#Kruskal-Wallis chi-squared = 2437.2, df = 3, p-value < 2.2e-16
+
+folder_path = paste0(file_path,"/bray_curtis")
+title_name_add = "Bray Curtis Unifrac distance"
+fig3dBdist <- make_distance_plot_2var(folder_path, mapper_file, var1, var2, comparisons, title_name_add, the_xid = the_xid, anglenum=anglenum)
+plot(fig3dBdist)
+#Kruskal-Wallis chi-squared = 2236.5, df = 3, p-value < 2.2e-16
+
+jpeg(h=400, w=1600/3*2, "FigureSx_fig3Dbetadivdistance.jpg", units = "px", quality = 0.9, pointsize = 1/300)
+	grid.arrange(	
+		fig3dUdist + labs(tag = "C", y = "Intra-group index\ndistance", x = "Treatment", title = NULL)+ ylim(c(0,1.1))+ scale_x_discrete(limits = c("EE_EE","FF_FF","BB_BB"), labels = c("Outdoor","Transplant","Indoor")) + theme(axis.text.x = element_text(hjust = 1), axis.title = element_text(face = "bold"))+ theme(plot.tag = element_text(size = text_size * 2, face = "bold"), axis.title = element_text(face = "bold", size = text_size *1.25)),
+		fig3dWdist + labs(tag = "D", y = "Intra-group index\ndistance", x = "Treatment", title = NULL)+ ylim(c(0,1.1))+ scale_x_discrete(limits = c("EE_EE","FF_FF","BB_BB"), labels = c("Outdoor","Transplant","Indoor")) + theme(axis.text.x = element_text(hjust = 1), axis.title = element_text(face = "bold"))+ theme(plot.tag = element_text(size = text_size * 2, face = "bold"), axis.title = element_text(face = "bold", size = text_size *1.25)),
+		widths = c(1,1),	
+		heights = c(1),	
+		layout_matrix=rbind(		
+			c(1,2)
+		))
+dev.off()
+
+```
+
+
+### - Figure 1D-E ANCOM
+```{r, warning=F, message=F }
+
+file_path <- "fig3_environment"
+mapper_file <- "metadata_mergedrun_removed.txt"
+
+
+getwd()
+
+var1 = "treatment"
+var2 = "time_num"
+var3 = "sex"
+var4 = "treatment_time"
+var5 = "cage"
+the_id = "X.SampleID"
+taxonomic_level = "order"
+name_levels <- c("order")
+newcol = "newcol"
+adjusted = F
+repeated = F
+main.var="treatment"
+adj.formula="time_num + sex"
+repeat.var = "time"
+longitudinal = T
+random.formula = "~1|cage"
+sig=0.05
+multcorr="fdr"
+prev.cut=0.9
+Group = "treatment"
+map_path = "-2014677"
+
+
+var4 = "treatment_time"
+Group = "treatment_time"
+
+fig3plots_v3 <- (make_ancom2_plots(file_path=file_path, map_path=map_path, mapper_file=mapper_file, taxonomic_level="order",var1=var1,var2=var2,var3=var3, var4 = var4,var5=var5, newcol="newcol", the_id = "X.SampleID", main.var=main.var, adj.formula=adj.formula, repeat.var = repeat.var, multcorr=multcorr, sig=sig, prev.cut=prev.cut, Group = Group, random.formula=random.formula, return_plots = T))
+fig3plots_v3[[3]]
+
+fig3plots_v2 <- (make_ancom2_plots(file_path=file_path, map_path=map_path, mapper_file=mapper_file, taxonomic_level="order",var1=var1,var2=var2,var3=var3, var4 = var4,var5=var5, newcol="newcol", the_id = "X.SampleID", main.var=main.var, adj.formula=adj.formula, repeat.var = repeat.var, multcorr=multcorr, sig=sig, prev.cut=prev.cut, Group = Group, random.formula=random.formula, return_tables = T))
+
+fig3_plotv2 <- fig3plots_v2[[1]] %>% data.frame() %>% mutate(treatment = factor(c("Indoor","Indoor","Indoor","Outdoor","Outdoor","Outdoor","Transplant","Transplant","Transplant"), levels = c("Outdoor","Transplant","Indoor"))) %>% mutate(time = factor(rep(c("Aug","Sep","Oct"),3), levels = c("Aug", "Sep","Oct")))
+fig3_plotv2_LAB <- fig3plots_v2[[1]] %>% data.frame() %>% mutate(treatment = factor(c("Indoor","Indoor","Indoor","Outdoor","Outdoor","Outdoor","Transplant","Transplant","Transplant"), levels = c("Outdoor","Transplant","Indoor"))) %>% mutate(time = factor(rep(c("Aug","Sep","Oct"),3), levels = c("Aug", "Sep","Oct")))
+fig3_plotv2_AAB <- fig3plots_v2[[1]] %>% data.frame() %>% mutate(treatment = factor(c("Indoor","Indoor","Indoor","Outdoor","Outdoor","Outdoor","Transplant","Transplant","Transplant"), levels = c("Outdoor","Transplant","Indoor"))) %>% mutate(time = factor(rep(c("Aug","Sep","Oct"),3), levels = c("Aug", "Sep","Oct")))
+fig3_plotv2_Ent <- fig3plots_v2[[1]] %>% data.frame() %>% mutate(treatment = factor(c("Indoor","Indoor","Indoor","Outdoor","Outdoor","Outdoor","Transplant","Transplant","Transplant"), levels = c("Outdoor","Transplant","Indoor"))) %>% mutate(time = factor(rep(c("Aug","Sep","Oct"),3), levels = c("Aug", "Sep","Oct")))
+
+fig3_plotv2_coryne <- ggplot(fig3_plotv2, aes(x = time, y = mean)) + geom_col(fill = "magenta") + facet_grid(rows = vars(treatment)) + theme_cowplot() + labs(x = "Sampling time", y = "Fractional abundance") + geom_errorbar(aes(ymin = mean-sem, ymax = mean+sem), width = 0.2)
+fig3_plotv2_LAB <- ggplot(fig3_plotv2, aes(x = time, y = mean.1)) + geom_col(fill = "blue") + facet_grid(rows = vars(treatment)) + theme_cowplot() + labs(x = "Sampling time", y = "Fractional abundance") + geom_errorbar(aes(ymin = mean.1-sem.1, ymax = mean.1+sem.1), width = 0.2)
+fig3_plotv2_AAB <- ggplot(fig3_plotv2, aes(x = time, y = mean.2)) + geom_col(fill = "red") + facet_grid(rows = vars(treatment)) + theme_cowplot() + labs(x = "Sampling time", y = "Fractional abundance") + geom_errorbar(aes(ymin = mean.2-sem.2, ymax = mean.2+sem.2), width = 0.2)
+fig3_plotv2_Ent <- ggplot(fig3_plotv2, aes(x = time, y = mean.3)) + geom_col(fill = "darkgreen") + facet_grid(rows = vars(treatment)) + theme_cowplot() + labs(x = "Sampling time", y = "Fractional abundance") + geom_errorbar(aes(ymin = mean.3-sem.3, ymax = mean.3+sem.3), width = 0.2)
+
+```
+
+## figure 3
+```{r}
+
+
+text_size = 12
+i=.75
+jpeg(h=1200*i, w=1600*i, "figure_3_2026.jpg", units = "px", quality = 0.9, pointsize = 1/300)
+	grid.arrange(fig3_taxon + labs(tag = "A", x = "Sampling time") + theme(legend.position = "none", axis.title = element_text(face = "bold"))+ theme(plot.tag = element_text(size = text_size * 2, face = "bold"), axis.title = element_text(face = "bold", size = text_size *1.25), strip.text.y = element_text(size = text_size), axis.text = element_text(size = text_size*.85), axis.text.x = element_text(size = text_size*.85)), 
+		plot_bc_fig3p + labs(tag = "B", title = NULL)+ theme(legend.position = "none", axis.title = element_text(face = "bold"))+ theme(plot.tag = element_text(size = text_size * 2, face = "bold"), axis.title = element_text(face = "bold", size = text_size *1.25)),
+		fig3cBdist + labs(tag = "C", y = "Index distance of\ntransplant vs:", x = "Treatment", title = NULL) + scale_x_discrete(limits = c("FF_FF","EE_FF","BB_FF"), labels = c("Itself","Outdoor","Indoor")) + theme(axis.text.x = element_text(hjust = 1), axis.title = element_text(face = "bold"))+ theme(plot.tag = element_text(size = text_size * 2, face = "bold"), axis.title = element_text(face = "bold", size = text_size *1.25)),
+		fig3dBdist + labs(tag = "D", y = "Intra-group index\ndistance", x = "Treatment", title = NULL)+ ylim(c(0,1.1))+ scale_x_discrete(limits = c("EE_EE","FF_FF","BB_BB"), labels = c("Outdoor","Transplant","Indoor")) + theme(axis.text.x = element_text(hjust = 1), axis.title = element_text(face = "bold"))+ theme(plot.tag = element_text(size = text_size * 2, face = "bold"), axis.title = element_text(face = "bold", size = text_size *1.25)) +  coord_cartesian(ylim=c(.5,.85)),
+		fig3_plotv2_AAB + labs(tag = "E")+ theme(plot.tag = element_text(size = text_size * 2, face = "bold"), axis.title = element_text(face = "bold", size = text_size *1.25), strip.text.y = element_text(size = text_size*.9), axis.text = element_text(size = text_size*.85), axis.text.x = element_text(size = text_size*.85)),
+		fig3_plotv2_LAB + labs(tag = "F")+ theme(plot.tag = element_text(size = text_size * 2, face = "bold"), axis.title = element_text(face = "bold", size = text_size *1.25), strip.text.y = element_text(size = text_size*.9), axis.text = element_text(size = text_size*.85), axis.text.x = element_text(size = text_size*.85)),
+		fig3_plotv2_Ent + labs(tag = "G")+ theme(plot.tag = element_text(size = text_size * 2, face = "bold"), axis.title = element_text(face = "bold", size = text_size *1.25), strip.text.y = element_text(size = text_size*.9), axis.text = element_text(size = text_size*.85), axis.text.x = element_text(size = text_size*.85)),
+		fig3_plotv2_coryne + labs(tag = "H")+ theme(plot.tag = element_text(size = text_size * 2, face = "bold"), axis.title = element_text(face = "bold", size = text_size *1.25), strip.text.y = element_text(size = text_size*.9), axis.text = element_text(size = text_size*.85), axis.text.x = element_text(size = text_size*.85)),
+		plot_fig3legend,
+		fig3_pc_plot_legend,
+		widths = c(1,.5,.5,1,1),	
+		heights = c(.78,.5,.28,1),	
+		layout_matrix=rbind(		
+			c(1,1,2,2,3),
+			c(1,1,2,2,4),
+			c(9,9,10,10,4),
+			c(5,6,6,7,8)
+			)
+		)
+dev.off()
+
+
+
+
+	
+	
+	
+```
+
+
+# Mantel
+## 2017 flies
+### second bash
+```{r, eval = F}
+
+conda activate qiime2-amplicon-2024.5
+
+name=2014677
+mapper=metadata_mergedrun_removed.txt
+
+qiime feature-table group \
+  --i-table table-$name""_noWRdecontam.qza \
+  --m-metadata-file $mapper \
+  --m-metadata-column cagetimeyearseqrun \
+  --p-mode median-ceiling \
+  --p-axis sample \
+  --o-grouped-table table-$name""_noWRdecontam_mantel.qza
+
+mapper=mantel_fst_mapper.txt
+echo $mapper
+qiime feature-table summarize \
+--i-table table-$name""_noWRdecontam_mantel.qza \
+--o-visualization table-$name""_noWRdecontam_mantel.qzv \
+--m-sample-metadata-file $mapper
+
+qiime tools export \
+--input-path table-$name""_noWRdecontam_mantel.qza \
+--output-path table-$name""_noWRdecontam_mantel
+
+biom convert -i table-$name""_noWRdecontam_mantel/feature-table.biom -o rarefied_table-$name""_noWRdecontam_mantel.txt --to-tsv
+
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam_mantel $name fig4_2014EFt1 750 mantel_fst_mapper.txt "seqrun IN ('seqrunA') AND treatment IN ('F','E') AND time IN ('T1') AND year IN ('y2014')" no
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam_mantel $name fig4_2014EFt2 750 mantel_fst_mapper.txt "seqrun IN ('seqrunA') AND treatment IN ('F','E') AND time IN ('T2') AND year IN ('y2014')" no
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam_mantel $name fig4_2014EFt3 750 mantel_fst_mapper.txt "seqrun IN ('seqrunA') AND treatment IN ('F','E') AND time IN ('T3') AND year IN ('y2014')" no
+
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam_mantel $name fig4_2017eft1 750 mantel_fst_mapper.txt "seqrun IN ('seqrunB') AND treatment IN ('f','e') AND time IN ('t1') AND year IN ('y2017')" no
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam_mantel $name fig4_2017eft3 750 mantel_fst_mapper.txt "seqrun IN ('seqrunB') AND treatment IN ('f','e') AND time IN ('t3') AND year IN ('y2017')" no
+
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam_mantel $name fig4_2017ebft1 750 mantel_fst_mapper.txt "seqrun IN ('seqrunB') AND treatment IN ('f','e','b') AND time IN ('t1') AND year IN ('y2017')" no
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam_mantel $name fig4_2017ebft3 750 mantel_fst_mapper.txt "seqrun IN ('seqrunB') AND treatment IN ('f','e','b') AND time IN ('t3') AND year IN ('y2017')" no
+
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam_mantel $name fig4_2016SFt1 750 mantel_fst_mapper.txt "(year = 'y2016' AND treatment IN ('S','F') and time IN ('T1'))" no
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam_mantel $name fig4_2016SFt2 750 mantel_fst_mapper.txt "(year = 'y2016' AND treatment IN ('S','F') and time IN ('T2'))" no
+bash ~/Dropbox/sequencing/16sscripts/standard_qiime3.sh $name""_noWRdecontam_mantel $name fig4_2016SFt3 750 mantel_fst_mapper.txt "(year = 'y2016' AND treatment IN ('S','F') and time IN ('T3'))" no
+
+```
+
+### year-by-year-functions
+```{r}
+rudman_2014Mantel <- function(file_path) {
+## maybe simpler? 
+
+mapper_subset <- data.frame(colnames(read.table(paste0("core-metrics-results-",file_path,"/rarefied_table.txt"), skip = 1, comment.char = "", header = T, sep = "\t"))[-1]) %>% 
+  dplyr::rename(codeA = 1) %>% tidyr::separate(col = codeA , into = c("cage","time","year","seqrun"), remove = F, sep = "_") %>% 
+  dplyr::mutate(treatment = stringr::str_replace_all(string = cage, pattern = "[:digit:]", replacement = "")) %>%
+  dplyr::mutate(treatment = toupper(treatment)) %>%
+  dplyr::mutate(cage = toupper(cage)) %>%
+  dplyr::mutate(time = toupper(time)) %>%
+  dplyr::mutate(timenum = as.numeric(stringr::str_replace_all(string = time, pattern = "T", replacement = ""))) %>% 
+  dplyr::mutate(yearsearch = (stringr::str_replace_all(string = year, pattern = "y", replacement = ""))) %>%
+  dplyr::mutate(SampleID = toupper(paste0(cage,"_t",timenum,"_",year))) 
+
+fst2 <- read.table('pairwisefst_2014_matrix_anova_JMC.csv', sep = ",", header = T) 
+rownames(fst2) <- paste0(fst2$X,"_Y2014")
+colnames(fst2) <- paste0(colnames(fst2),"_Y2014")
+colnames(fst2)[1] <- "X"
+fst2 <- fst2 %>% dplyr::select(-X)
+
+assign_names <- mapper_subset$SampleID[mapper_subset$SampleID %in% colnames(fst2)]
+
+working_fst_1 <- fst2[assign_names,assign_names]
+
+bray_curtis_matrix_A <- read.table(paste0("core-metrics-results-",file_path,"/bray_curtis_distance_matrix/distance-matrix.tsv"))
+colnames(bray_curtis_matrix_A) <- toupper(str_replace_all(string = colnames(bray_curtis_matrix_A), pattern = "_seqrunA", replacement = ""))
+rownames(bray_curtis_matrix_A) <- toupper(str_replace_all(string = rownames(bray_curtis_matrix_A), pattern = "_seqrunA", replacement = ""))
+bray_curtis_matrix_1 <- bray_curtis_matrix_A[assign_names,assign_names]
+
+weighted_unifrac_matrix_A <- read.table(paste0("core-metrics-results-",file_path,"/weighted_unifrac_distance_matrix/distance-matrix.tsv"))
+colnames(weighted_unifrac_matrix_A) <- toupper(str_replace_all(string = colnames(weighted_unifrac_matrix_A), pattern = "_seqrunA", replacement = ""))
+rownames(weighted_unifrac_matrix_A) <- toupper(str_replace_all(string = rownames(weighted_unifrac_matrix_A), pattern = "_seqrunA", replacement = ""))
+weighted_unifrac_matrix_1 <- weighted_unifrac_matrix_A[assign_names,assign_names]
+
+unweighted_unifrac_matrix_A <- read.table(paste0("core-metrics-results-",file_path,"/unweighted_unifrac_distance_matrix/distance-matrix.tsv"))
+colnames(unweighted_unifrac_matrix_A) <- toupper(str_replace_all(string = colnames(unweighted_unifrac_matrix_A), pattern = "_seqrunA", replacement = ""))
+rownames(unweighted_unifrac_matrix_A) <- toupper(str_replace_all(string = rownames(unweighted_unifrac_matrix_A), pattern = "_seqrunA", replacement = ""))
+unweighted_unifrac_matrix_1 <- unweighted_unifrac_matrix_A[assign_names,assign_names]
+
+
+## run checks
+if(!length(colnames(working_fst_1)[!colnames(working_fst_1) %in% colnames(bray_curtis_matrix_1)]) == 0) {  cat("bc and fst are different lengths ...")}
+if(!length(colnames(working_fst_1)[!colnames(working_fst_1) %in% colnames(weighted_unifrac_matrix_1)]) == 0) {  cat("wu and fst are different lengths ...")}
+if(!length(colnames(working_fst_1)[!colnames(working_fst_1) %in% colnames(unweighted_unifrac_matrix_1)]) == 0) {  cat("uu and fst are different lengths ...")}
+
+fst_mat <- as.matrix(working_fst_1)
+bc_mat <- as.matrix(bray_curtis_matrix_1)
+wu_mat <- as.matrix(weighted_unifrac_matrix_1)
+uu_mat <- as.matrix(unweighted_unifrac_matrix_1)
+
+if(!sum(dim(bc_mat)) == sum(dim(fst_mat))) {cat("bc and fst matrices are different dimensions ... ")}
+if(!sum(dim(wu_mat)) == sum(dim(fst_mat))) {cat("wu and fst matrices are different dimensions ... ")}
+if(!sum(dim(uu_mat)) == sum(dim(fst_mat))) {cat("uu and fst matrices are different dimensions ... ")}
+
+set.seed(43)
+bc_mantel <- mantel(as.dist(bray_curtis_matrix_1), as.dist(working_fst_1), na.rm = T)
+wu_mantel <- mantel(as.dist(weighted_unifrac_matrix_1), as.dist(working_fst_1), na.rm = T)
+uu_mantel <- mantel(as.dist(unweighted_unifrac_matrix_1), as.dist(working_fst_1), na.rm = T)
+print(paste0("Bray Curtis: ", bc_mantel$signif))
+print(paste0("Weighted Unifrac: ", wu_mantel$signif))
+print(paste0("Unweighted Unifrac: ", uu_mantel$signif))
+
+bcdf <- as.data.frame(bc_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+fstdf <- as.data.frame(fst_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+bcfstdf <- bcdf %>% inner_join(fstdf, by = "RC") %>% filter(Value.x!=0, Value.y!=0) %>% tidyr::separate(col = RC, into = c("cage1","time1","year1","cage2","time2","year2"), remove = F) %>% 
+  mutate(treatment1 = stringr::str_replace_all(string = cage1, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment2 = stringr::str_replace_all(string = cage2, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment = paste0(treatment1, treatment2)) %>%
+  mutate(treatment = str_replace_all(string = treatment, pattern = "EF",replacement = "FE"))
+table(bcfstdf$treatment)
+bc_plot <- ggplot(bcfstdf %>% filter(Value.x!=0, Value.y!=0), aes(x = Value.x, y = Value.y, color = treatment, group = "hello")) + geom_jitter(size = 4, alpha = 1) + stat_smooth(method = "lm", alpha = 0, color = "black") + scale_color_manual(name = NULL, values = c("#FFD700","blue","#9BAA5C"), limits = c("EE","FF","FE"), labels = c("Outdoor v Outdoor", "Transplant v Transplant", "Outdoor v Transplant")) + theme_cowplot() + theme(legend.position = "bottom") + labs(x = "Bray-Curtis Distance", y = "Genomic Fst")+ labs(title = bquote(paste(rho, " = ", .(bc_mantel$statistic), ", ", italic(p), " = ", .(bc_mantel$signif)))) + theme(plot.title = element_text(hjust = 1))
+
+wudf <- as.data.frame(wu_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+fstdf <- as.data.frame(fst_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+wufstdf <- wudf %>% inner_join(fstdf, by = "RC") %>% filter(Value.x!=0, Value.y!=0) %>% tidyr::separate(col = RC, into = c("cage1","time1","year1","cage2","time2","year2"), remove = F) %>% 
+  mutate(treatment1 = stringr::str_replace_all(string = cage1, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment2 = stringr::str_replace_all(string = cage2, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment = paste0(treatment1, treatment2)) %>%
+  mutate(treatment = str_replace_all(string = treatment, pattern = "EF",replacement = "FE"))
+wu_plot <- ggplot(wufstdf %>% filter(Value.x!=0, Value.y!=0), aes(x = Value.x, y = Value.y, color = treatment, group = "hello")) + geom_jitter(size = 4, alpha = 1) + stat_smooth(method = "lm", alpha = 0, color = "black") + scale_color_manual(name = NULL, values = c("#FFD700","blue","#9BAA5C"), limits = c("EE","FF","FE"), labels = c("Outdoor v Outdoor", "Transplant v Transplant", "Outdoor v Transplant")) + theme_cowplot() + theme(legend.position = "bottom") + labs(x = "Bray-Curtis Distance", y = "Genomic Fst")+ labs(title = bquote(paste(rho, " = ", .(wu_mantel$statistic), ", ", italic(p), " = ", .(wu_mantel$signif)))) + theme(plot.title = element_text(hjust = 1))
+
+uudf <- as.data.frame(uu_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+fstdf <- as.data.frame(fst_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+uufstdf <- uudf %>% inner_join(fstdf, by = "RC") %>% filter(Value.x!=0, Value.y!=0) %>% tidyr::separate(col = RC, into = c("cage1","time1","year1","cage2","time2","year2"), remove = F) %>% 
+  mutate(treatment1 = stringr::str_replace_all(string = cage1, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment2 = stringr::str_replace_all(string = cage2, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment = paste0(treatment1, treatment2)) %>%
+  mutate(treatment = str_replace_all(string = treatment, pattern = "EF",replacement = "FE"))
+uu_plot <- ggplot(uufstdf %>% filter(Value.x!=0, Value.y!=0), aes(x = Value.x, y = Value.y, color = treatment, group = "hello")) + geom_jitter(size = 4, alpha = 1) + stat_smooth(method = "lm", alpha = 0, color = "black") + scale_color_manual(name = NULL, values = c("#FFD700","blue","#9BAA5C"), limits = c("EE","FF","FE"), labels = c("Outdoor v Outdoor", "Transplant v Transplant", "Outdoor v Transplant")) + theme_cowplot() + theme(legend.position = "bottom") + labs(x = "Bray-Curtis Distance", y = "Genomic Fst")+ labs(title = bquote(paste(rho, " = ", .(uu_mantel$statistic), ", ", italic(p), " = ", .(uu_mantel$signif)))) + theme(plot.title = element_text(hjust = 1))
+
+return(list(bc_mantel, wu_mantel, uu_mantel, bc_plot, wu_plot, uu_plot))
+}
+rudman_2016Mantel <- function(file_path) {
+## maybe simpler? 
+
+mapper_subset <- data.frame(colnames(read.table(paste0("core-metrics-results-",file_path,"/rarefied_table.txt"), skip = 1, comment.char = "", header = T, sep = "\t"))[-1]) %>% 
+  dplyr::rename(codeA = 1) %>% tidyr::separate(col = codeA , into = c("cage","time","year","seqrun"), remove = F, sep = "_") %>% 
+  dplyr::mutate(treatment = stringr::str_replace_all(string = cage, pattern = "[:digit:]", replacement = "")) %>%
+  dplyr::mutate(treatment = toupper(treatment)) %>%
+  dplyr::mutate(cage = toupper(cage)) %>%
+  dplyr::mutate(time = toupper(time)) %>%
+  dplyr::mutate(timenum = as.numeric(stringr::str_replace_all(string = time, pattern = "T", replacement = ""))+1) %>% 
+  dplyr::mutate(yearsearch = (stringr::str_replace_all(string = year, pattern = "y", replacement = ""))) %>%
+  dplyr::mutate(`#SampleID` = toupper(paste0(cage,"_t",timenum,"_",year)))
+
+mapper_subset$codeA
+
+bray_curtis_matrix_A <- read.table(paste0("core-metrics-results-",file_path,"/bray_curtis_distance_matrix/distance-matrix.tsv"))
+
+fst2 <- read.table('pairwisefst_2016_matrix_anova_JMC.csv', sep = ",", header = T) 
+rownames(fst2) <- paste0(fst2$X,"_y2016_seqrunA")
+colnames(fst2) <- paste0(colnames(fst2),"_y2016_seqrunA")
+colnames(fst2)[1] <- "X"
+fst2 <- fst2 %>% dplyr::select(-X)
+
+assign_names <- mapper_subset$codeA[mapper_subset$codeA %in% colnames(fst2)]
+
+working_fst_1 <- fst2[assign_names,assign_names]
+
+bray_curtis_matrix_A <- read.table(paste0("core-metrics-results-",file_path,"/bray_curtis_distance_matrix/distance-matrix.tsv"))
+bray_curtis_matrix_1 <- bray_curtis_matrix_A[assign_names,assign_names]
+
+weighted_unifrac_matrix_A <- read.table(paste0("core-metrics-results-",file_path,"/weighted_unifrac_distance_matrix/distance-matrix.tsv"))
+weighted_unifrac_matrix_1 <- weighted_unifrac_matrix_A[assign_names,assign_names]
+
+unweighted_unifrac_matrix_A <- read.table(paste0("core-metrics-results-",file_path,"/unweighted_unifrac_distance_matrix/distance-matrix.tsv"))
+unweighted_unifrac_matrix_1 <- unweighted_unifrac_matrix_A[assign_names,assign_names]
+
+## run checks
+if(!length(colnames(working_fst_1)[!colnames(working_fst_1) %in% colnames(bray_curtis_matrix_1)]) == 0) {  cat("bc and fst are different lengths ...")}
+if(!length(colnames(working_fst_1)[!colnames(working_fst_1) %in% colnames(weighted_unifrac_matrix_1)]) == 0) {  cat("wu and fst are different lengths ...")}
+if(!length(colnames(working_fst_1)[!colnames(working_fst_1) %in% colnames(unweighted_unifrac_matrix_1)]) == 0) {  cat("uu and fst are different lengths ...")}
+
+fst_mat <- as.matrix(working_fst_1)
+bc_mat <- as.matrix(bray_curtis_matrix_1)
+wu_mat <- as.matrix(weighted_unifrac_matrix_1)
+uu_mat <- as.matrix(unweighted_unifrac_matrix_1)
+
+if(!sum(dim(bc_mat)) == sum(dim(fst_mat))) {cat("bc and fst matrices are different dimensions ... ")}
+if(!sum(dim(wu_mat)) == sum(dim(fst_mat))) {cat("wu and fst matrices are different dimensions ... ")}
+if(!sum(dim(uu_mat)) == sum(dim(fst_mat))) {cat("uu and fst matrices are different dimensions ... ")}
+
+set.seed(43)
+bc_mantel <- mantel(as.dist(bray_curtis_matrix_1), as.dist(working_fst_1), na.rm = T)
+set.seed(43)
+wu_mantel <- mantel(as.dist(weighted_unifrac_matrix_1), as.dist(working_fst_1), na.rm = T)
+set.seed(43)
+uu_mantel <- mantel(as.dist(unweighted_unifrac_matrix_1), as.dist(working_fst_1), na.rm = T)
+
+print(paste0("Bray Curtis: ", bc_mantel$signif))
+print(paste0("Weighted Unifrac: ", wu_mantel$signif))
+print(paste0("Unweighted Unifrac: ", uu_mantel$signif))
+
+bcdf <- as.data.frame(bc_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+fstdf <- as.data.frame(fst_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+bcfstdf <- bcdf %>% inner_join(fstdf, by = "RC") %>% filter(Value.x!=0, Value.y!=0) %>% tidyr::separate(col = RC, into = c("cage1","time1","year1","seqrun1","cage2","time2","year2","seqrun2"), remove = F) %>% 
+  mutate(treatment1 = stringr::str_replace_all(string = cage1, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment2 = stringr::str_replace_all(string = cage2, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment = paste0(treatment1, treatment2)) %>%
+  mutate(treatment = str_replace_all(string = treatment, pattern = "FS",replacement = "SF"))
+
+bc_plot <- ggplot(bcfstdf %>% filter(Value.x!=0, Value.y!=0), aes(x = Value.x, y = Value.y, color = treatment, group = "hello")) + geom_jitter(size = 4, alpha = 1) + stat_smooth(method = "lm", alpha = 0, col = "black") + scale_color_manual(name = NULL, values = c("#FFD700","blue","#9BAA5C"), limits = c("SS","FF","SF"), labels = c("Spring v Spring", "Fall v Fall", "Spring v Fall")) + theme_cowplot() + theme(legend.position = "bottom") + labs(x = "Bray-Curtis Distance", y = "Genomic Fst")+ labs(title = bquote(paste(rho, " = ", .(bc_mantel$statistic), ", ", italic(p), " = ", .(bc_mantel$signif)))) + theme(plot.title = element_text(hjust = 1))
+
+wudf <- as.data.frame(wu_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+fstdf <- as.data.frame(fst_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+wufstdf <- wudf %>% inner_join(fstdf, by = "RC") %>% filter(Value.x!=0, Value.y!=0) %>% tidyr::separate(col = RC, into = c("cage1","time1","year1","seqrun1","cage2","time2","year2","seqrun2"), remove = F) %>% 
+  mutate(treatment1 = stringr::str_replace_all(string = cage1, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment2 = stringr::str_replace_all(string = cage2, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment = paste0(treatment1, treatment2)) %>%
+  mutate(treatment = str_replace_all(string = treatment, pattern = "FS",replacement = "SF"))
+wu_plot <- ggplot(wufstdf %>% filter(Value.x!=0, Value.y!=0), aes(x = Value.x, y = Value.y, color = treatment, group = "hello")) + geom_jitter(size = 4, alpha = 1) + stat_smooth(method = "lm", alpha = 0, color = "black") + scale_color_manual(name = NULL, values = c("#FFD700","blue","#9BAA5C"), limits = c("SS","FF","SF"), labels = c("Spring v Spring", "Fall v Fall", "Spring v Fall")) + theme_cowplot() + theme(legend.position = "bottom") + labs(x = "Bray-Curtis Distance", y = "Genomic Fst")+ labs(title = bquote(paste(rho, " = ", .(wu_mantel$statistic), ", ", italic(p), " = ", .(wu_mantel$signif)))) + theme(plot.title = element_text(hjust = 1))
+
+uudf <- as.data.frame(uu_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+fstdf <- as.data.frame(fst_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+uufstdf <- uudf %>% inner_join(fstdf, by = "RC") %>% filter(Value.x!=0, Value.y!=0) %>% tidyr::separate(col = RC, into = c("cage1","time1","year1","seqrun1","cage2","time2","year2","seqrun2"), remove = F) %>% 
+  mutate(treatment1 = stringr::str_replace_all(string = cage1, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment2 = stringr::str_replace_all(string = cage2, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment = paste0(treatment1, treatment2)) %>%
+  mutate(treatment = str_replace_all(string = treatment, pattern = "FS",replacement = "SF"))
+uu_plot <- ggplot(uufstdf %>% filter(Value.x!=0, Value.y!=0), aes(x = Value.x, y = Value.y, color = treatment, group = "hello")) + geom_jitter(size = 4, alpha = 1) + stat_smooth(method = "lm", alpha = 0, color = "black") + scale_color_manual(name = NULL, values = c("#FFD700","blue","#9BAA5C"), limits = c("SS","FF","SF"), labels = c("Spring v Spring", "Fall v Fall", "Spring v Fall")) + theme_cowplot() + theme(legend.position = "bottom") + labs(x = "Bray-Curtis Distance", y = "Genomic Fst")+ labs(title = bquote(paste(rho, " = ", .(uu_mantel$statistic), ", ", italic(p), " = ", .(uu_mantel$signif)))) + theme(plot.title = element_text(hjust = 1))
+
+return(list(bc_mantel, wu_mantel, uu_mantel, bc_plot, wu_plot, uu_plot))
+}
+rudman_2017Mantel <- function(file_path, seqrun = "seqrunB") {
+## maybe simpler? 
+mapper_subset <- data.frame(colnames(read.table(paste0("core-metrics-results-",file_path,"/rarefied_table.txt"), skip = 1, comment.char = "", header = T, sep = "\t"))[-1]) %>% 
+  dplyr::rename(codeA = 1) %>% tidyr::separate(col = codeA , into = c("cage","time","year","seqrun"), remove = F, sep = "_") %>% 
+  dplyr::mutate(codeA = toupper(codeA)) %>%
+  dplyr::mutate(treatment = stringr::str_replace_all(string = cage, pattern = "[:digit:]", replacement = "")) %>%
+  dplyr::mutate(treatment = toupper(treatment)) %>%
+  dplyr::mutate(cage = toupper(cage)) %>%
+  dplyr::mutate(time = toupper(time)) %>%
+  dplyr::mutate(timenum = as.numeric(stringr::str_replace_all(string = time, pattern = "T", replacement = ""))) %>% 
+  dplyr::mutate(yearsearch = (stringr::str_replace_all(string = year, pattern = "y", replacement = ""))) %>%
+  dplyr::mutate(SampleID = toupper(paste0(cage,"_t",timenum,"_",year,"_",seqrun))) 
+
+print(names(table(mapper_subset$seqrun)))
+print(table(mapper_subset$treatment))
+
+bray_curtis_matrix_A <- read.table(paste0("core-metrics-results-",file_path,"/bray_curtis_distance_matrix/distance-matrix.tsv"))
+rownames(bray_curtis_matrix_A) <- toupper(rownames(bray_curtis_matrix_A))
+colnames(bray_curtis_matrix_A) <- toupper(colnames(bray_curtis_matrix_A))
+
+fst2 <- read.table('pairwisefst_2017_matrix_anova_JMC.csv', sep = ",", header = T) 
+rownames(fst2) <- toupper(paste0(fst2$X,"_y2017_",seqrun))
+colnames(fst2) <- toupper(paste0(colnames(fst2),"_y2017_",seqrun))
+colnames(fst2)[1] <- "X"
+fst2 <- fst2 %>% dplyr::select(-X)
+
+assign_names <- mapper_subset$SampleID[mapper_subset$SampleID %in% colnames(fst2)]
+
+working_fst_1 <- fst2[assign_names,assign_names]
+
+bray_curtis_matrix_A <- read.table(paste0("core-metrics-results-",file_path,"/bray_curtis_distance_matrix/distance-matrix.tsv"))
+colnames(bray_curtis_matrix_A) <- toupper(colnames(bray_curtis_matrix_A))
+rownames(bray_curtis_matrix_A) <- toupper(rownames(bray_curtis_matrix_A))
+bray_curtis_matrix_1 <- bray_curtis_matrix_A[assign_names,assign_names]
+
+weighted_unifrac_matrix_A <- read.table(paste0("core-metrics-results-",file_path,"/weighted_unifrac_distance_matrix/distance-matrix.tsv"))
+colnames(weighted_unifrac_matrix_A) <- toupper(colnames(weighted_unifrac_matrix_A))
+rownames(weighted_unifrac_matrix_A) <- toupper(rownames(weighted_unifrac_matrix_A))
+weighted_unifrac_matrix_1 <- weighted_unifrac_matrix_A[assign_names,assign_names]
+
+unweighted_unifrac_matrix_A <- read.table(paste0("core-metrics-results-",file_path,"/unweighted_unifrac_distance_matrix/distance-matrix.tsv"))
+colnames(unweighted_unifrac_matrix_A) <- toupper(colnames(unweighted_unifrac_matrix_A))
+rownames(unweighted_unifrac_matrix_A) <- toupper(rownames(unweighted_unifrac_matrix_A))
+unweighted_unifrac_matrix_1 <- unweighted_unifrac_matrix_A[assign_names,assign_names]
+
+
+## run checks
+if(!length(colnames(working_fst_1)[!colnames(working_fst_1) %in% colnames(bray_curtis_matrix_1)]) == 0) {  cat("bc and fst are different lengths ...")}
+if(!length(colnames(working_fst_1)[!colnames(working_fst_1) %in% colnames(weighted_unifrac_matrix_1)]) == 0) {  cat("wu and fst are different lengths ...")}
+if(!length(colnames(working_fst_1)[!colnames(working_fst_1) %in% colnames(unweighted_unifrac_matrix_1)]) == 0) {  cat("uu and fst are different lengths ...")}
+
+fst_mat <- as.matrix(working_fst_1)
+bc_mat <- as.matrix(bray_curtis_matrix_1)
+wu_mat <- as.matrix(weighted_unifrac_matrix_1)
+uu_mat <- as.matrix(unweighted_unifrac_matrix_1)
+
+if(!sum(dim(bc_mat)) == sum(dim(fst_mat))) {cat("bc and fst matrices are different dimensions ... ")}
+if(!sum(dim(wu_mat)) == sum(dim(fst_mat))) {cat("wu and fst matrices are different dimensions ... ")}
+if(!sum(dim(uu_mat)) == sum(dim(fst_mat))) {cat("uu and fst matrices are different dimensions ... ")}
+
+set.seed(43)
+bc_mantel <- mantel(as.dist(bray_curtis_matrix_1), as.dist(working_fst_1), na.rm = T)
+set.seed(43)
+wu_mantel <- mantel(as.dist(weighted_unifrac_matrix_1), as.dist(working_fst_1), na.rm = T)
+set.seed(43)
+uu_mantel <- mantel(as.dist(unweighted_unifrac_matrix_1), as.dist(working_fst_1), na.rm = T)
+print(paste0("Bray Curtis: ", bc_mantel$signif))
+print(paste0("Weighted Unifrac: ", wu_mantel$signif))
+print(paste0("Unweighted Unifrac: ", uu_mantel$signif))
+
+bcdf <- as.data.frame(bc_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+fstdf <- as.data.frame(fst_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+bcfstdf <- bcdf %>% inner_join(fstdf, by = "RC") %>% filter(Value.x!=0, Value.y!=0) %>% tidyr::separate(col = RC, into = c("cage1","time1","year1","seqrun1","cage2","time2","year2","seqrun2"), remove = F) %>% 
+  mutate(treatment1 = stringr::str_replace_all(string = cage1, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment2 = stringr::str_replace_all(string = cage2, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment = paste0(treatment1, treatment2)) %>%
+  mutate(treatment = str_replace_all(string = treatment, pattern = "EB", replacement = "BE")) %>%
+  mutate(treatment = str_replace_all(string = treatment, pattern = "EF", replacement = "FE")) %>% 
+  mutate(treatment = str_replace_all(string = treatment, pattern = "BF", replacement = "FB")) 
+
+mantel_stat <- bc_mantel$statistic
+mantel_signif <- bc_mantel$signif
+
+bc_plot <- ggplot(bcfstdf %>% filter(Value.x!=0, Value.y!=0), aes(x = Value.x, y = Value.y, color = treatment, group = "hello")) + geom_jitter(size = 4, alpha = 1) + stat_smooth(method = "lm", alpha = 0, color = "black") + scale_color_manual(name = NULL, limits = c("EE","FE","FF","BE","BB","FB"), labels = c("Outdoor v Outdoor","Outdoor v Transplant","Transplant v Transplant","Outdoor v Indoor","Indoor v Indoor","Transplant v Indoor"), values = c("#E41A1c", "#F2780E","#FFD700","#8E4C6A","blue", "#9BAA5C")) + theme_cowplot() + theme(legend.position = "bottom") + labs(x = "Bray-Curtis Distance", y = "Genomic Fst") + labs(title = bquote(paste(rho, " = ", .(bc_mantel$statistic), ", ", italic(p), " = ", .(bc_mantel$signif)))) + theme(plot.title = element_text(hjust = 1))
+#labs(title = expression(rho == bc_mantel$statistic ~ ", " ~ italic(p) == bc_mantel$signif))
+#bc_plot <- ggplot(bcfstdf %>% filter(Value.x!=0, Value.y!=0), aes(x = Value.x, y = Value.y, color = treatment, group = "hello")) + geom_jitter(size = 4, alpha = 1) + stat_smooth(method = "lm", alpha = 0) + scale_color_manual(name = NULL, limits = c("EE","FE","BE","FF","FB","BB"), labels = c("Outdoor v Outdoor","Outdoor v Transplant","Outdoor v Indoor","Transplant v Transplant","Transplant v Indoor","Indoor v Indoor"), values = c("#E41A1c", "#8E4C6A","#F2780E","#9BAA5C","#FFD700", "blue")) + theme_cowplot() + theme(legend.position = "bottom") + labs(x = "Bray-Curtis Distance", y = "Genomic Fst")
+
+wudf <- as.data.frame(wu_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+fstdf <- as.data.frame(fst_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+wufstdf <- wudf %>% inner_join(fstdf, by = "RC") %>% filter(Value.x!=0, Value.y!=0) %>% tidyr::separate(col = RC, into = c("cage1","time1","year1","seqrun1","cage2","time2","year2","seqrun2"), remove = F) %>% 
+  mutate(treatment1 = stringr::str_replace_all(string = cage1, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment2 = stringr::str_replace_all(string = cage2, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment = paste0(treatment1, treatment2)) %>%
+  mutate(treatment = str_replace_all(string = treatment, pattern = "EB", replacement = "BE")) %>%
+  mutate(treatment = str_replace_all(string = treatment, pattern = "EF", replacement = "FE")) %>% 
+  mutate(treatment = str_replace_all(string = treatment, pattern = "BF", replacement = "FB")) 
+wu_plot <- ggplot(wufstdf %>% filter(Value.x!=0, Value.y!=0), aes(x = Value.x, y = Value.y, color = treatment, group = "hello")) + geom_jitter(size = 4, alpha = 1) + stat_smooth(method = "lm", alpha = 0, color = "black") + scale_color_manual(name = NULL, limits = c("EE","FE","FF","BE","BB","FB"), labels = c("Outdoor v Outdoor","Outdoor v Transplant","Transplant v Transplant","Outdoor v Indoor","Indoor v Indoor","Transplant v Indoor"), values = c("#E41A1c", "#F2780E","#FFD700","#8E4C6A","blue", "#9BAA5C")) + theme_cowplot() + theme(legend.position = "bottom") + labs(x = "Bray-Curtis Distance", y = "Genomic Fst")+ labs(title = bquote(paste(rho, " = ", .(wu_mantel$statistic), ", ", italic(p), " = ", .(wu_mantel$signif)))) + theme(plot.title = element_text(hjust = 1))
+
+uudf <- as.data.frame(uu_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+fstdf <- as.data.frame(fst_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+uufstdf <- uudf %>% inner_join(fstdf, by = "RC") %>% filter(Value.x!=0, Value.y!=0) %>% tidyr::separate(col = RC, into = c("cage1","time1","year1","seqrun1","cage2","time2","year2","seqrun2"), remove = F) %>% 
+  mutate(treatment1 = stringr::str_replace_all(string = cage1, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment2 = stringr::str_replace_all(string = cage2, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment = paste0(treatment1, treatment2)) %>%
+  mutate(treatment = str_replace_all(string = treatment, pattern = "EB", replacement = "BE")) %>%
+  mutate(treatment = str_replace_all(string = treatment, pattern = "EF", replacement = "FE")) %>% 
+  mutate(treatment = str_replace_all(string = treatment, pattern = "BF", replacement = "FB")) 
+uu_plot <- ggplot(uufstdf %>% filter(Value.x!=0, Value.y!=0), aes(x = Value.x, y = Value.y, color = treatment, group = "hello")) + geom_jitter(size = 4, alpha = 1) + stat_smooth(method = "lm", alpha = 0, color = "black") + scale_color_manual(name = NULL, limits = c("EE","FE","FF","BE","BB","FB"), labels = c("Outdoor v Outdoor","Outdoor v Transplant","Transplant v Transplant","Outdoor v Indoor","Indoor v Indoor","Transplant v Indoor"), values = c("#E41A1c", "#F2780E","#FFD700","#8E4C6A","blue", "#9BAA5C")) + theme_cowplot() + theme(legend.position = "bottom") + labs(x = "Bray-Curtis Distance", y = "Genomic Fst")+ labs(title = bquote(paste(rho, " = ", .(uu_mantel$statistic), ", ", italic(p), " = ", .(uu_mantel$signif)))) + theme(plot.title = element_text(hjust = 1))
+
+return(list(bc_mantel, wu_mantel, uu_mantel, bc_plot, wu_plot, uu_plot))
+}
+rudman_2017Mantel_pairs <- function(file_path, seqrun = "seqrunB") {
+## maybe simpler? 
+mapper_subset <- data.frame(colnames(read.table(paste0("core-metrics-results-",file_path,"/rarefied_table.txt"), skip = 1, comment.char = "", header = T, sep = "\t"))[-1]) %>% 
+  dplyr::rename(codeA = 1) %>% tidyr::separate(col = codeA , into = c("cage","time","year","seqrun"), remove = F, sep = "_") %>% 
+  dplyr::mutate(codeA = toupper(codeA)) %>%
+  dplyr::mutate(treatment = stringr::str_replace_all(string = cage, pattern = "[:digit:]", replacement = "")) %>%
+  dplyr::mutate(treatment = toupper(treatment)) %>%
+  dplyr::mutate(cage = toupper(cage)) %>%
+  dplyr::mutate(time = toupper(time)) %>%
+  dplyr::mutate(timenum = as.numeric(stringr::str_replace_all(string = time, pattern = "T", replacement = ""))) %>% 
+  dplyr::mutate(yearsearch = (stringr::str_replace_all(string = year, pattern = "y", replacement = ""))) %>%
+  dplyr::mutate(SampleID = toupper(paste0(cage,"_t",timenum,"_",year,"_",seqrun))) 
+
+print(names(table(mapper_subset$seqrun)))
+print(table(mapper_subset$treatment))
+
+bray_curtis_matrix_A <- read.table(paste0("core-metrics-results-",file_path,"/bray_curtis_distance_matrix/distance-matrix.tsv"))
+rownames(bray_curtis_matrix_A) <- toupper(rownames(bray_curtis_matrix_A))
+colnames(bray_curtis_matrix_A) <- toupper(colnames(bray_curtis_matrix_A))
+
+fst2 <- read.table('pairwisefst_2017_matrix_anova_JMC.csv', sep = ",", header = T) 
+rownames(fst2) <- toupper(paste0(fst2$X,"_y2017_",seqrun))
+colnames(fst2) <- toupper(paste0(colnames(fst2),"_y2017_",seqrun))
+colnames(fst2)[1] <- "X"
+fst2 <- fst2 %>% dplyr::select(-X)
+
+assign_names <- mapper_subset$SampleID[mapper_subset$SampleID %in% colnames(fst2)]
+
+working_fst_1 <- fst2[assign_names,assign_names]
+
+bray_curtis_matrix_A <- read.table(paste0("core-metrics-results-",file_path,"/bray_curtis_distance_matrix/distance-matrix.tsv"))
+colnames(bray_curtis_matrix_A) <- toupper(colnames(bray_curtis_matrix_A))
+rownames(bray_curtis_matrix_A) <- toupper(rownames(bray_curtis_matrix_A))
+bray_curtis_matrix_1 <- bray_curtis_matrix_A[assign_names,assign_names]
+
+weighted_unifrac_matrix_A <- read.table(paste0("core-metrics-results-",file_path,"/weighted_unifrac_distance_matrix/distance-matrix.tsv"))
+colnames(weighted_unifrac_matrix_A) <- toupper(colnames(weighted_unifrac_matrix_A))
+rownames(weighted_unifrac_matrix_A) <- toupper(rownames(weighted_unifrac_matrix_A))
+weighted_unifrac_matrix_1 <- weighted_unifrac_matrix_A[assign_names,assign_names]
+
+unweighted_unifrac_matrix_A <- read.table(paste0("core-metrics-results-",file_path,"/unweighted_unifrac_distance_matrix/distance-matrix.tsv"))
+colnames(unweighted_unifrac_matrix_A) <- toupper(colnames(unweighted_unifrac_matrix_A))
+rownames(unweighted_unifrac_matrix_A) <- toupper(rownames(unweighted_unifrac_matrix_A))
+unweighted_unifrac_matrix_1 <- unweighted_unifrac_matrix_A[assign_names,assign_names]
+
+
+## run checks
+if(!length(colnames(working_fst_1)[!colnames(working_fst_1) %in% colnames(bray_curtis_matrix_1)]) == 0) {  cat("bc and fst are different lengths ...")}
+if(!length(colnames(working_fst_1)[!colnames(working_fst_1) %in% colnames(weighted_unifrac_matrix_1)]) == 0) {  cat("wu and fst are different lengths ...")}
+if(!length(colnames(working_fst_1)[!colnames(working_fst_1) %in% colnames(unweighted_unifrac_matrix_1)]) == 0) {  cat("uu and fst are different lengths ...")}
+
+fst_mat <- as.matrix(working_fst_1)
+bc_mat <- as.matrix(bray_curtis_matrix_1)
+wu_mat <- as.matrix(weighted_unifrac_matrix_1)
+uu_mat <- as.matrix(unweighted_unifrac_matrix_1)
+
+if(!sum(dim(bc_mat)) == sum(dim(fst_mat))) {cat("bc and fst matrices are different dimensions ... ")}
+if(!sum(dim(wu_mat)) == sum(dim(fst_mat))) {cat("wu and fst matrices are different dimensions ... ")}
+if(!sum(dim(uu_mat)) == sum(dim(fst_mat))) {cat("uu and fst matrices are different dimensions ... ")}
+
+set.seed(43)
+bc_mantel <- mantel(as.dist(bray_curtis_matrix_1), as.dist(working_fst_1), na.rm = T)
+set.seed(43)
+wu_mantel <- mantel(as.dist(weighted_unifrac_matrix_1), as.dist(working_fst_1), na.rm = T)
+set.seed(43)
+uu_mantel <- mantel(as.dist(unweighted_unifrac_matrix_1), as.dist(working_fst_1), na.rm = T)
+print(paste0("Bray Curtis: ", bc_mantel$signif))
+print(paste0("Weighted Unifrac: ", wu_mantel$signif))
+print(paste0("Unweighted Unifrac: ", uu_mantel$signif))
+
+bcdf <- as.data.frame(bc_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+fstdf <- as.data.frame(fst_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+bcfstdf <- bcdf %>% inner_join(fstdf, by = "RC") %>% filter(Value.x!=0, Value.y!=0) %>% tidyr::separate(col = RC, into = c("cage1","time1","year1","seqrun1","cage2","time2","year2","seqrun2"), remove = F) %>% 
+  mutate(treatment1 = stringr::str_replace_all(string = cage1, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment2 = stringr::str_replace_all(string = cage2, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment = paste0(treatment1, treatment2)) %>%
+  mutate(treatment = str_replace_all(string = treatment, pattern = "EB", replacement = "BE")) %>%
+  mutate(treatment = str_replace_all(string = treatment, pattern = "EF", replacement = "FE")) %>% 
+  mutate(treatment = str_replace_all(string = treatment, pattern = "BF", replacement = "FB")) 
+bc_plot <- ggplot(bcfstdf %>% filter(Value.x!=0, Value.y!=0), aes(x = Value.x, y = Value.y, color = treatment, group = "hello")) + geom_jitter(size = 4, alpha = 1) + stat_smooth(method = "lm", alpha = 0, color = "black") + scale_color_manual(name = NULL, limits = c("EE","FF","FE","BE","BB","FB"), labels = c("Outdoor v Outdoor","Transplant v Transplant","Outdoor v Transplant","","Outdoor v Indoor","Indoor v Indoor","Transplant v Indoor"), values = c("#E41A1c", "#FFD700","#F2780E","#8E4C6A","blue", "#9BAA5C")) + theme_cowplot() + theme(legend.position = "bottom") + labs(x = "Bray-Curtis Distance", y = "Genomic Fst")+ labs(title = bquote(paste(rho, " = ", .(bc_mantel$statistic), ", ", italic(p), " = ", .(bc_mantel$signif)))) + theme(plot.title = element_text(hjust = 1))
+#bc_plot <- ggplot(bcfstdf %>% filter(Value.x!=0, Value.y!=0), aes(x = Value.x, y = Value.y, color = treatment, group = "hello")) + geom_jitter(size = 4, alpha = 1) + stat_smooth(method = "lm", alpha = 0) + scale_color_manual(name = NULL, limits = c("EE","FE","BE","FF","FB","BB"), labels = c("Outdoor v Outdoor","Outdoor v Transplant","Outdoor v Indoor","Transplant v Transplant","Transplant v Indoor","Indoor v Indoor"), values = c("#E41A1c", "#8E4C6A","#F2780E","#9BAA5C","#FFD700", "blue")) + theme_cowplot() + theme(legend.position = "bottom") + labs(x = "Bray-Curtis Distance", y = "Genomic Fst")
+bc_plot
+
+
+wudf <- as.data.frame(wu_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+fstdf <- as.data.frame(fst_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+wufstdf <- wudf %>% inner_join(fstdf, by = "RC") %>% filter(Value.x!=0, Value.y!=0) %>% tidyr::separate(col = RC, into = c("cage1","time1","year1","seqrun1","cage2","time2","year2","seqrun2"), remove = F) %>% 
+  mutate(treatment1 = stringr::str_replace_all(string = cage1, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment2 = stringr::str_replace_all(string = cage2, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment = paste0(treatment1, treatment2)) %>%
+  mutate(treatment = str_replace_all(string = treatment, pattern = "EB", replacement = "BE")) %>%
+  mutate(treatment = str_replace_all(string = treatment, pattern = "EF", replacement = "FE")) %>% 
+  mutate(treatment = str_replace_all(string = treatment, pattern = "BF", replacement = "FB")) 
+wu_plot <- ggplot(wufstdf %>% filter(Value.x!=0, Value.y!=0), aes(x = Value.x, y = Value.y, color = treatment, group = "hello")) + geom_jitter(size = 4, alpha = 1) + stat_smooth(method = "lm", alpha = 0, color = "black") + scale_color_manual(name = NULL, limits = c("EE","FF","FE","BE","BB","FB"), labels = c("Outdoor v Outdoor","Transplant v Transplant","Outdoor v Transplant","","Outdoor v Indoor","Indoor v Indoor","Transplant v Indoor"), values = c("#E41A1c", "#FFD700","#F2780E","#8E4C6A","blue", "#9BAA5C")) + theme_cowplot() + theme(legend.position = "bottom") + labs(x = "Bray-Curtis Distance", y = "Genomic Fst")+ labs(title = bquote(paste(rho, " = ", .(wu_mantel$statistic), ", ", italic(p), " = ", .(wu_mantel$signif)))) + theme(plot.title = element_text(hjust = 1))
+
+uudf <- as.data.frame(uu_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+fstdf <- as.data.frame(fst_mat) %>%  tibble::rownames_to_column(var = "Row") %>%  pivot_longer(cols = -Row, names_to = "Column", values_to = "Value") %>% mutate(RC = paste0(Row,"_",Column)) %>% dplyr::select(-Row, -Column)
+uufstdf <- uudf %>% inner_join(fstdf, by = "RC") %>% filter(Value.x!=0, Value.y!=0) %>% tidyr::separate(col = RC, into = c("cage1","time1","year1","seqrun1","cage2","time2","year2","seqrun2"), remove = F) %>% 
+  mutate(treatment1 = stringr::str_replace_all(string = cage1, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment2 = stringr::str_replace_all(string = cage2, pattern = "[:digit:]", replacement = "")) %>%
+  mutate(treatment = paste0(treatment1, treatment2)) %>%
+  mutate(treatment = str_replace_all(string = treatment, pattern = "EB", replacement = "BE")) %>%
+  mutate(treatment = str_replace_all(string = treatment, pattern = "EF", replacement = "FE")) %>% 
+  mutate(treatment = str_replace_all(string = treatment, pattern = "BF", replacement = "FB")) 
+uu_plot <- ggplot(uufstdf %>% filter(Value.x!=0, Value.y!=0), aes(x = Value.x, y = Value.y, color = treatment, group = "hello")) + geom_jitter(size = 4, alpha = 1) + stat_smooth(method = "lm", alpha = 0, color = "black") + scale_color_manual(name = NULL, limits = c("EE","FF","FE","BE","BB","FB"), labels = c("Outdoor v Outdoor","Transplant v Transplant","Outdoor v Transplant","","Outdoor v Indoor","Indoor v Indoor","Transplant v Indoor"), values = c("#E41A1c", "#FFD700","#F2780E","#8E4C6A","blue", "#9BAA5C")) + theme_cowplot() + theme(legend.position = "bottom") + labs(x = "Bray-Curtis Distance", y = "Genomic Fst")+ labs(title = bquote(paste(rho, " = ", .(uu_mantel$statistic), ", ", italic(p), " = ", .(uu_mantel$signif)))) + theme(plot.title = element_text(hjust = 1))
+
+return(list(bc_mantel, wu_mantel, uu_mantel, bc_plot, wu_plot, uu_plot))
+}
+
+```
+
+
+## 2014
+```{r}
+for(i in c("fig4_2014EFt1","fig4_2014EFt2","fig4_2014EFt3")) {assign(paste0("y2014_",i), rudman_2014Mantel(i))}   # no sig
+y2014_fig4_2014EFt1[[4]]
+y2014_fig4_2014EFt2[[4]]
+y2014_fig4_2014EFt3[[4]]
+
+```
+
+## 2016
+```{r}
+for(i in c("fig4_2016SFt1","fig4_2016SFt2","fig4_2016SFt3")) {assign(paste0("y2016_",i), rudman_2016Mantel(i))}   # no sig
+y2016_fig4_2016SFt1[[4]]
+y2016_fig4_2016SFt2[[4]]
+y2016_fig4_2016SFt3[[4]]
+
+```
+
+### 2017 - new fst
+```{r}
+
+for (i in c("fig4_2017eft1","fig4_2017eft3")) {assign(paste0("y2017_",i), rudman_2017Mantel_pairs(i, seqrun = "seqrunB"))}
+y2017_fig4_2017eft1[[4]]
+y2017_fig4_2017eft3[[4]]
+
+for (i in c("fig4_2017ebft1","fig4_2017ebft3")) {assign(paste0("y2017_",i), rudman_2017Mantel(i, seqrun = "seqrunB"))}
+y2017_fig4_2017ebft1[[4]]
+y2017_fig4_2017ebft3[[4]]
+
+```
+
+## overall fst
+```{r}
+
+i=.85
+jpeg(h=1200*i, w=1800*i, "figure4_2026.jpg", units = "px", quality = 0.9, pointsize = 1/300)
+	grid.arrange(y2014_fig4_2014EFt1[[4]] + labs(tag = "A"),
+    y2014_fig4_2014EFt2[[4]] + labs(tag = "B"),
+    y2014_fig4_2014EFt3[[4]] + labs(tag = "C"),
+    y2016_fig4_2016SFt1[[4]] + labs(tag = "D"),
+    y2016_fig4_2016SFt2[[4]] + labs(tag = "E"),
+    y2016_fig4_2016SFt3[[4]] + labs(tag = "F"),
+    y2017_fig4_2017ebft1[[4]] + labs(tag = "G"),
+    y2017_fig4_2017ebft3[[4]] + labs(tag = "H"),
+		widths = c(1,1,1),	
+		heights = c(1,1,1),	
+		layout_matrix=rbind(		
+			c(1,2,3),
+			c(4,5,6),
+			c(7,NA,9)
+			)
+		)
+dev.off()
+
+jpeg(h=1200*i, w=1800*i, "figure4_2026_wu.jpg", units = "px", quality = 0.9, pointsize = 1/300)
+	grid.arrange(y2014_fig4_2014EFt1[[5]] + labs(tag = "A", x = "weighted Unifrac distance"),
+    y2014_fig4_2014EFt2[[5]] + labs(tag = "B", x = "weighted Unifrac distance"),
+    y2014_fig4_2014EFt3[[5]] + labs(tag = "C", x = "weighted Unifrac distance"),
+    y2016_fig4_2016SFt1[[5]] + labs(tag = "D", x = "weighted Unifrac distance"),
+    y2016_fig4_2016SFt2[[5]] + labs(tag = "E", x = "weighted Unifrac distance"),
+    y2016_fig4_2016SFt3[[5]] + labs(tag = "F", x = "weighted Unifrac distance"),
+    y2017_fig4_2017ebft1[[5]] + labs(tag = "G", x = "weighted Unifrac distance"),
+    y2017_fig4_2017ebft3[[5]] + labs(tag = "H", x = "weighted Unifrac distance"),
+		widths = c(1,1,1),	
+		heights = c(1,1,1),	
+		layout_matrix=rbind(		
+			c(1,2,3),
+			c(4,5,6),
+			c(7,NA,9)
+			)
+		)
+dev.off()
+
+jpeg(h=1200*i, w=1800*i, "figure4_2026_uu.jpg", units = "px", quality = 0.9, pointsize = 1/300)
+	grid.arrange(y2014_fig4_2014EFt1[[6]] + labs(tag = "A", x = "unweighted Unifrac distance"),
+    y2014_fig4_2014EFt2[[6]] + labs(tag = "B",x = "unweighted Unifrac distance"),
+    y2014_fig4_2014EFt3[[6]] + labs(tag = "C",x = "unweighted Unifrac distance"),
+    y2016_fig4_2016SFt1[[6]] + labs(tag = "D",x = "unweighted Unifrac distance"),
+    y2016_fig4_2016SFt2[[6]] + labs(tag = "E",x = "unweighted Unifrac distance"),
+    y2016_fig4_2016SFt3[[6]] + labs(tag = "F",x = "unweighted Unifrac distance"),
+    y2017_fig4_2017ebft1[[6]] + labs(tag = "G",x = "unweighted Unifrac distance"),
+    y2017_fig4_2017ebft3[[6]] + labs(tag = "H", x = "unweighted Unifrac distance"),
+		widths = c(1,1,1),	
+		heights = c(1,1,1),	
+		layout_matrix=rbind(		
+			c(1,2,3),
+			c(4,5,6),
+			c(7,NA,9)
+			)
+		)
+dev.off()
+
+
+i=.85
+jpeg(h=1200*i, w=1800*i*.67, "figureSX_2017_EF.jpg", units = "px", quality = 0.9, pointsize = 1/300)
+	grid.arrange(
+	  y2017_fig4_2017eft1[[4]] + labs(tag = "A", x = "Bray-Curtis distance")+  scale_color_manual(name = NULL, limits = c("EE","FF","FE"), labels = c("Outdoor v Outdoor","Transplant v Transplant","Outdoor v Transplant",""), values = c("#E41A1c", "#FFD700","#F2780E")) + theme_cowplot() + theme(legend.position = "bottom"),
+    y2017_fig4_2017eft3[[4]] + labs(tag = "B", x = "Bray-Curtis distance")+  scale_color_manual(name = NULL, limits = c("EE","FF","FE"), labels = c("Outdoor v Outdoor","Transplant v Transplant","Outdoor v Transplant",""), values = c("#E41A1c", "#FFD700","#F2780E")) + theme_cowplot() + theme(legend.position = "bottom"),
+	  y2017_fig4_2017eft1[[5]] + labs(tag = "C", x = "weighted Unifrac distance")+  scale_color_manual(name = NULL, limits = c("EE","FF","FE"), labels = c("Outdoor v Outdoor","Transplant v Transplant","Outdoor v Transplant",""), values = c("#E41A1c", "#FFD700","#F2780E")) + theme_cowplot() + theme(legend.position = "bottom"),
+    y2017_fig4_2017eft3[[5]] + labs(tag = "D", x = "weighted Unifrac distance")+  scale_color_manual(name = NULL, limits = c("EE","FF","FE"), labels = c("Outdoor v Outdoor","Transplant v Transplant","Outdoor v Transplant",""), values = c("#E41A1c", "#FFD700","#F2780E")) + theme_cowplot() + theme(legend.position = "bottom"),
+	  y2017_fig4_2017eft1[[6]] + labs(tag = "E", x = "unweighted Unifrac distance")+ scale_color_manual(name = NULL, limits = c("EE","FF","FE"), labels = c("Outdoor v Outdoor","Transplant v Transplant","Outdoor v Transplant",""), values = c("#E41A1c", "#FFD700","#F2780E")) + theme_cowplot() + theme(legend.position = "bottom"),
+    y2017_fig4_2017eft3[[6]] + labs(tag = "F", x = "unweighted Unifrac distance")+ scale_color_manual(name = NULL, limits = c("EE","FF","FE"), labels = c("Outdoor v Outdoor","Transplant v Transplant","Outdoor v Transplant",""), values = c("#E41A1c", "#FFD700","#F2780E")) + theme_cowplot() + theme(legend.position = "bottom"),
+		widths = c(1,1),
+		heights = c(1,1,1),
+		layout_matrix=rbind(		
+			c(1,2),
+			c(3,4),
+			c(5,6)
+			)
+		)
+dev.off()
+
+```
+
