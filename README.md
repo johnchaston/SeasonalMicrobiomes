@@ -1,0 +1,1 @@
+Download the Seasonal Microbiomes_0.0.7.Rmd file, save to a directory. At the top is a 'Download Files' section that will download all your files. Download them to the same directory, press knit, and you'll run the entire script. 
