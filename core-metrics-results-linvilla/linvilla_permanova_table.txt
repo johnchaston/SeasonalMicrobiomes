@@ -1,0 +1,16 @@
+Permanova tables
+unweighted_unifrac
+Df	SumOfSqs	R2	F	Pr(>F)
+date_num	11	1.7	0.34	1.1	0.26
+Residual	23	3.22	0.66	NA	NA
+Total	34	4.92	1	NA	NA
+weighted_unifrac
+Df	SumOfSqs	R2	F	Pr(>F)
+date_num	11	0.67	0.42	1.53	0.05
+Residual	23	0.92	0.58	NA	NA
+Total	34	1.59	1	NA	NA
+bray_curtis
+Df	SumOfSqs	R2	F	Pr(>F)
+date_num	11	4.36	0.37	1.21	0.06
+Residual	23	7.54	0.63	NA	NA
+Total	34	11.9	1	NA	NA
